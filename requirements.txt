@@ -1,0 +1,11 @@
+vllm
+datasets
+huggingface
+tensorboard
+httpx
+gputil
+tensorflow
+seaborn
+pynvml
+openai
+tiktoken
