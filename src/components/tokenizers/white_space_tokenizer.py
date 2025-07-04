@@ -15,3 +15,6 @@ class WSTokenizer(TokenizerI):
 
     def should_decode(self):
         return False
+    
+    def calc_num_additional_tokens(self, prompt: str):
+        return 0
