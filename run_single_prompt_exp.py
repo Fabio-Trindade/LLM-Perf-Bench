@@ -23,18 +23,15 @@ import logging
 from src.stats_generator.stats_generator import StatsGenerator
 from src import components
 from src import parsers
-from src.utils.util_import import import_all_modules
 from src.utils.single_csv_writer import SingleCSVWriter
+from src.utils.util_import import import_all_modules
+from src.utils.util_assert import assert_all_decode_size_equal
+
 import_all_modules(components)
 import_all_modules(parsers)
 
 @Binder.create_parse_from_config(ConfigCatalog._single_prompt_exp_config)
-def add_single_prompt_args(): pass   
-
-def assert_all_decode_size_equal(prompts: list[PromptPerformanceMetrics], target_out_size: int):
-    for prompt_data in prompts:
-        prompt = prompt_data.prompt
-        assert len(prompt.decoded_tokens) == target_out_size
+def add_single_prompt_args(): pass
 
 def run(args):
     config = args
