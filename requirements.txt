@@ -9,3 +9,4 @@ seaborn
 pynvml
 openai
 tiktoken
+tabulate
