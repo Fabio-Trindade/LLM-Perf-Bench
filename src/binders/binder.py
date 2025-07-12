@@ -33,18 +33,23 @@ class Binder:
         return decorator
 
     @staticmethod
-    def create_parse_from_config(config):
+    def create_parse_from_config(configs):
         def decorator(target):
             def apply_arguments(parser, fixed_values):
                 fixed_values = get_fixed_values(fixed_values)
-                for var in config.var_names:
-                    values = getattr(config,var)
-                    add_arg(
-                        parser, values.name, fixed_values,
-                        type=values.type, default=values.default_value,
-                        help=values.description, choices=values.choices,
-                        nargs = values.nargs
-                    )
+                if not isinstance(configs, list):
+                    all_configs = [configs]
+                else:
+                    all_configs = configs
+                for config in all_configs:
+                    for var in config.var_names:
+                        values = getattr(config,var)
+                        add_arg(
+                            parser, values.name, fixed_values,
+                            type=values.type, default=values.default_value,
+                            help=values.description, choices=values.choices,
+                            nargs = values.nargs
+                        )
             if isinstance(target, type):
                 def __init__(self, parser, fixed_values):
                     apply_arguments(parser, fixed_values)
