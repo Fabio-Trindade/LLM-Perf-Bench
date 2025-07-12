@@ -1,3 +1,4 @@
+import logging
 from math import ceil
 from src.data_structures.prompt import Prompt
 from itertools import chain
@@ -28,12 +29,11 @@ class PromptGeneratorBase():
 
         tokenized_prompt = tokenized_prompt[:len(tokenized_prompt) - diff]
 
-        if tokenizer.should_decode():
-            prompt = tokenizer.decode_ids(tokenized_prompt)
-        else:
-            prompt = "".join(tokenized_prompt)
-        
-        inp_len = len(tokenizer.tokenize(prompt)) + additional_tokens
-        assert( inp_len  == num_input_tokens )
+        prompt = tokenizer.decode_ids(tokenized_prompt)
 
-        return Prompt(prompt, inp_len)
+        
+        logging.warning("Can be removed after tests. file=prompt_generator.py, line=37")
+        inp_len = len(tokenizer.tokenize(prompt)) + additional_tokens
+        assert(inp_len  == num_input_tokens )
+
+        return Prompt(prompt, inp_len, num_out_tokens)
