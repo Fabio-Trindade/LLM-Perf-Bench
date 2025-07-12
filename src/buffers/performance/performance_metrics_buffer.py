@@ -1,3 +1,4 @@
+from copy import deepcopy
 from src.data_structures.prompt_performance_metrics import PromptPerformanceMetrics
 from typing import Any
 import threading
@@ -12,15 +13,16 @@ class PerformanceMetricsBuffer():
         
     def initialize_metrics(self, prompt, key: Any, req_id:int , start_request_time: bool) -> None:
         assert key not in self.metrics, f"Metrics for key {key} already exists."
-        prompt_metrics = PromptPerformanceMetrics(prompt, req_id)
+        prompt_metrics = PromptPerformanceMetrics(deepcopy(prompt), req_id)
         if start_request_time:
             prompt_metrics.start_req_time()
         # with self._lock:
         self.metrics[key] = prompt_metrics
         
     def add_decode_data(self, key, time, token):
-            self.metrics[key].add_out_token_time(time)
-            self.metrics[key].add_decoded_token(token)
+        self.metrics[key].add_out_token_time(time)
+        self.metrics[key].add_decoded_token(token)
+        
             
     def add_out_token_time(self, key, time):
         self.metrics[key].add_out_token_time(time)
