@@ -13,7 +13,4 @@ class TokenizerI(ABC):
     @abstractmethod 
     def decode_ids(self,ids: list[int]) -> list[str]:
         raise RuntimeError("Not Implemented")
-    
-    @abstractmethod
-    def should_decode(self) -> bool:
-        raise RuntimeError("Not Implemented")
+

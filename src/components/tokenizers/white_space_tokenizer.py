@@ -11,10 +11,7 @@ class WSTokenizer(TokenizerI):
         return prompt.split(" ")
 
     def decode_ids(self, ids):
-        pass
+        return " ".join(ids)
 
-    def should_decode(self):
-        return False
-    
     def calc_num_additional_tokens(self, prompt: str):
         return 0

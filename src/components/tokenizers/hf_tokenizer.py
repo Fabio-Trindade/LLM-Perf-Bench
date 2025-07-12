@@ -16,9 +16,6 @@ class HFTokenizer(TokenizerI):
         w_special_tokens = self.tokenizer(prompt, add_special_tokens=True)['input_ids']
         return len(w_special_tokens) - len(wo_special_tokens)
 
-    def should_decode(self):
-        return True
-    
     def decode_ids(self, ids):
         return self.tokenizer.decode(ids,skip_special_tokens=True, clean_up_tokenization_spaces=True)
     
