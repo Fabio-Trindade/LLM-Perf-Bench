@@ -45,13 +45,13 @@ class WorkloadLauncher():
             self.init_server()
 
         self.start_monitors()
-        prompt_tasks = self.load_generator.async_continuous_prompt_generation_task(self.prompt_sampler)
+        prompt_tasks = self.load_generator.create_async_continuous_prompt_generation_tasks(self.prompt_sampler)
         
         initial_time = time.time()
 
-        request_tasks = self.load_generator.async_continuous_request_task(self.requester, self.server)
+        request_tasks = await self.load_generator.create_async_continuous_request_tasks(self.requester, self.server)
 
-        await asyncio.gather(prompt_tasks, request_tasks)
+        await asyncio.gather(*(prompt_tasks + request_tasks))
         
         final_time = time.time()
 
