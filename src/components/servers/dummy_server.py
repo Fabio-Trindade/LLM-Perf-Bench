@@ -8,7 +8,7 @@ class DummyServer(ServerI):
     def __init__(self, config):
         pass
     def init(self,):
-        print("Initializing dummy server")
+        print("Dummy server initialized")
     
     def shutdown(self,):
         print("Shutting down dummy server")

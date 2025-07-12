@@ -29,21 +29,31 @@ class LoadGenerator:
         prompt_idx, prompt = prompt_sampler.get_prompt_with_idx()
         await self.queue.add_prompt_and_idx_async(prompt, prompt_idx)
 
-    async def create_async_continuous_prompt_generation_tasks(self):
-        return [asyncio.create_task(self.async_continuous_prompt_generation_task()) for _ in range(self.load_config.num_requester_threads)]
+    def create_async_continuous_prompt_generation_tasks(self,prompt_sampler):
+        return [asyncio.create_task(self.async_continuous_prompt_generation_task(prompt_sampler)) for _ in range(self.load_config.num_requester_threads)]
 
-    async def async_continuous_request_task(self, requester: RequesterI, server:ServerI):
+    async def async_continuous_request_task(self, requester: RequesterI, server: ServerI):
+        
+        request_count = 0
+
+        while self.queue.empty():
+            await asyncio.sleep(0.01)
+            continue
+
+        await requester.async_request(self.queue, self.buffer, server)
+        request_count += 1
+
+
+    async def create_async_continuous_request_tasks(self, requester: RequesterI, server:ServerI):
         init_time = time.time()
         end_time = time.time()
-        
-        while end_time - init_time < self.load_config.run_time:
-            if self.queue.empty(): continue
-            await requester.async_request(self.queue, self.buffer, server)
+        tasks = []
+        while end_time - init_time <= self.load_config.run_time:
+            for _ in range(self.load_config.num_requester_threads):
+                tasks.append(asyncio.create_task(self.async_continuous_request_task(requester, server)))
             await asyncio.sleep(self.load_config.requester_sleep_time)
             end_time = time.time()
-
-    async def create_async_continuous_request_tasks(self, requester: RequesterI):
-        return [asyncio.create_task(self.async_continuous_request_task(requester)) for _ in range(self.load_config.num_requester_threads)]
+        return tasks
 
 
 

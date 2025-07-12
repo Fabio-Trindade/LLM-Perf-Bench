@@ -22,5 +22,9 @@ class RequesterI(ABC):
             self._global_request_id += 1
             return self._global_request_id
     
+    def reset(self):
+        with self._lock:
+            self._global_request_id = 0
+    
 
     

@@ -22,29 +22,30 @@ class OpenAIRequester(RequesterI):
         server: OpenAIServer = server
         prompts_per_request = config.prompts_per_request
 
-        assert prompts_per_request == 1, "Only 1 prompt per request is supported"
+        assert prompts_per_request == 1, "Only 1 prompt per request is supported with OpenAI."
 
         req_id = self.get_request_id()
         i = 0
 
         prompt, prompt_idx = await queue.get_prompt_and_idx_async()
-        client = server.client
+        client = server.client 
 
         messages = [get_template(prompt.prompt)]
-        
-        buffer.initialize_metrics(prompt, (req_id, i) , req_id, True)
-        try:      
-            stream = client.chat.completions.create(
-                model = config.model,
-                messages = messages,
-                stream = True,
-                max_completion_tokens = config.max_out_tokens
+
+        buffer.initialize_metrics(prompt, (req_id, i), req_id, True)
+
+        try:
+            stream = await client.chat.completions.create(
+                model=config.model,
+                messages=messages,
+                stream=True,
+                max_completion_tokens=prompt.max_out_tokens,
             )
         except Exception as e:
             logging.error(f"Error during OpenAI request: {e}")
-            raise e
+            raise
 
-        for event in stream:
+        async for event in stream:
             content = event.choices[0].delta.content
             if content:
                 now = time.time()

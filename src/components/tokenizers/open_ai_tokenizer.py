@@ -15,8 +15,6 @@ class OpenAITokenizer(TokenizerI):
     def tokenize(self, prompt: str):
          return self.encoding.encode(prompt)
 
-    def should_decode(self):
-        return True
     
     def decode_ids(self, ids):
         return self.encoding.decode(ids)
@@ -30,10 +28,9 @@ class OpenAITokenizer(TokenizerI):
             "gpt-4-0314",
             "gpt-4-32k-0314",
             "gpt-4-0613",
-            "gpt-4-32k-0613",
-            
+            "gpt-4-32k-0613"
         }:
-            tokens_per_message = 3 
+            tokens_per_message = 3 # every prompt is primed with <|start|>user<|message|>
         elif model in {"gpt-3.5-turbo-0301", 
                        "gpt-3.5-turbo-0125"}:
             tokens_per_message = 4  # every message follows <|start|>{role/name}\n{content}<|end|>\n

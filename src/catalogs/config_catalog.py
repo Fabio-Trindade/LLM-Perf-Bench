@@ -67,7 +67,7 @@ class ConfigCatalog:
     _load_config = create_namespace_from_fields(FIELDS, [
         config_field("num_prompts", True, int, 0, "Number of prompts to generate"),
         config_field("prompt_size_range", True, tuple, (10, 100), "Range of prompt sizes (min, max)"),
-        config_field("max_out_tokens", True, int, 256, "Maximum output tokens per response"),
+        config_field("max_out_tokens_range", True, tuple, (10,100), "Maximum output tokens per response"),
         config_field("prompts_per_request", True, int, 1, "Number of prompts per request"),
         config_field("seed", False, int, None, "Random seed for reproducibility"),
         config_field("run_time", True, float, 60.0, "Total runtime in seconds"),
@@ -83,14 +83,21 @@ class ConfigCatalog:
         config_field("model_name_alias", False, str, None, "Optional alias for the model"),
         config_field("experiment_key", True, str, None, "Experiment identifier"),
     ])
+    _single_prompt_exp_config = create_namespace_from_fields(
+         FIELDS,
+        [config_field("repeat_times", True, int, 1, desc = "Later")]
+    )
 
-    _single_prompt_exp_config = create_namespace_from_fields(FIELDS, [
+    _prompt_variation_config = create_namespace_from_fields(FIELDS, [
         config_field("prompt_sizes", True, int, [10,20], desc = "Later", nargs='+'),
-        # config_field("max_out_tokens_sizes", True, int, [10,20], desc = "Later", nargs='+')
-
+        config_field("max_out_tokens", True, int, 1, desc = "Later")
     ])
 
-    
+    _intervaled_load_config = create_namespace_from_fields(FIELDS, [
+        config_field("interval_percentage", True, float, 5, desc = "Later"),
+        config_field("prompt_size_for_max_load", True, int, 1, desc = "Later")
+    ])
+
     #components
     _launcher_config = get_launcher_config()
 
@@ -99,14 +106,15 @@ class ConfigCatalog:
         config_field("port", True, str,None, "Server port"),
         config_field("endpoint", True, str,None, "API endpoint"),
         config_field("vllm_server_init_timeout", True, int,None, "API endpoint"),
-        config_field("num_answers", True, int, None, "API endpoint"),
-        config_field("use_beam_search", True, bool,None, "API endpoint"),
-        config_field("temperature", True, float,None, "API endpoint"),
+        # config_field("num_answers", True, int, None, "API endpoint"),
+        # config_field("use_beam_search", True, bool,None, "API endpoint"),
+        # config_field("temperature", True, float,None, "API endpoint"),
+        config_field("ignore_eos", True, bool,True, "API endpoint"),
         config_field("vllm_request_timeout", True , int, None, "API endpoint"),
     ])
 
     _dummy_config = create_namespace_from_fields(FIELDS, [
-        config_field("infer_sleep_time", True, int, 0, "Sleep time for inference"),
+        config_field("infer_sleep_time", True, float, 0, "Sleep time for inference"),
     ])
 
     _openai_config = create_namespace_from_fields(FIELDS, [

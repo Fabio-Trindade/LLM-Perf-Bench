@@ -16,14 +16,10 @@ class VLLMRequester(RequesterI):
         self.prompts_per_request = config.prompts_per_request
         self.vllm_server_url = get_url_from_config(config)
         self.timeout = self.requester_config.vllm_request_timeout
-        assert self.requester_config.num_answers == 1
-
-
 
     async def async_request(self, queue, buffer, server):
         prompts, prompt_idx_list = [], []
         req_id = self.get_request_id()
-
         for i in range(self.prompts_per_request):
             prompt, prompt_idx = await queue.get_prompt_and_idx_async()
             buffer.initialize_metrics(prompt, (req_id, i), req_id, True)
@@ -33,13 +29,13 @@ class VLLMRequester(RequesterI):
         request_template = {
             "model": self.model,
             "prompt": prompts,
-            "max_tokens": self.max_tokens,
             "stream": True,
-            "temperature": self.requester_config.temperature,
-            "ignore_eos":True,
-            "n": self.requester_config.num_answers,
+            "temperature": 0,
+            "ignore_eos": self.config.ignore_eos,
+            "n": 1,
             "skip_special_tokens": False,
-            "min_tokens": self.requester_config.max_out_tokens
+            "max_tokens": prompt.max_out_tokens,
+            "min_tokens": prompt.max_out_tokens
             }
 
         

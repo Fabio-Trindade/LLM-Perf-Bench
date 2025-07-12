@@ -1,5 +1,4 @@
 import logging
-from src.data_structures.csv_data_format import CSVDataFormat
 import pandas as pd
 import os
 
