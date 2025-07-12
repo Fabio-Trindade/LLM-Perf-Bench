@@ -1,15 +1,16 @@
-import json
 from src.data_structures.prompt_performance_metrics import PromptPerformanceMetrics
-
+import json
 
 class CSVDataFormat:
     def __init__(self, exp_key, 
                  model_name,
+                 req_per_sec,
                  prompt_metrics: PromptPerformanceMetrics
                  
                  ):
         self.key = exp_key
         self.model_name = model_name
+        self.req_per_sec = req_per_sec
         var_names = ["total_throughput",
                      "prefill_throughput",
                      "decode_throughput",
@@ -20,7 +21,13 @@ class CSVDataFormat:
                      "prompt_size",
                      "num_decoded_tokens",
                      "prompt",
-                     "decoded_tokens"]
+                     "decoded_tokens",
+                     "initial_time",
+                     "final_time",
+                     "request_id",
+                     "success",
+                  ]
+        
         for var_name in var_names:
             setattr(self, var_name, None)
             
@@ -39,4 +46,10 @@ class CSVDataFormat:
 
             self.prompt = prompt_metrics.prompt.prompt
             self.decoded_tokens = json.dumps(prompt_metrics.prompt.decoded_tokens)
+
+            self.initial_time = prompt_metrics.get_initial_req_time()
+            self.final_time = prompt_metrics.get_final_time()
+
+            self.request_id = prompt_metrics.get_req_id()
+            self.success = prompt_metrics.get_success()
         
