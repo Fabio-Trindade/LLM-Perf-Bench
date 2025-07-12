@@ -1,4 +1,4 @@
-from openai import OpenAI
+from openai import AsyncOpenAI
 from src.registries.component_class_registry import ComponentClassRegistry
 from src.registries.component_registry import ComponentRegistry
 from src.components.servers.server_interface import ServerI
@@ -10,10 +10,10 @@ class OpenAIServer(ServerI):
         self.client = None
     
     def init(self):
-        self.client = OpenAI(api_key = self.requester_config.api_key)
+        self.client = AsyncOpenAI(api_key=self.requester_config.api_key)
 
-    def shutdown(self):
-        self.client.close()
+    async def shutdown(self):
+        await self.client.close()
 
     
         
