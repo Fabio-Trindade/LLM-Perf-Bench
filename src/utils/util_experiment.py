@@ -17,51 +17,45 @@ from src.utils.util_logging import config_logging
 import logging
 from src.utils.single_csv_writer import SingleCSVWriter
 from src.utils.util_assert import assert_all_decode_size_equal
-
-def run_prompt_variation_exp_by_config(title, config):
-    config_logging(config.logging)
-
-    logging.info(f"----------- {title} -----------")
-    logging.info(f"Tensorboard plots and configuration were saved in ... {'path_to_tensorboard'}\n")
+from fractions import Fraction
+class LoadResults:
+    def __init__(self,):
+        self.all_results = []
+        self.all_host_data = []
+        self.all_accelerator_data = []
     
-    config.max_out_tokens_range = (config.max_out_tokens, config.max_out_tokens)
+    def add_data(self, results, host_data, acc_data):
+        self.all_results.append(results)
+        self.all_host_data.append(host_data)
+        self.all_accelerator_data.append(acc_data)
 
-    prompt_sizes = config.prompt_sizes
+    def get_all(self):
+        return self.all_results, self.all_host_data, self.all_accelerator_data
 
-    prompt_generator = PromptGeneratorBase()
-    all_results = []
-    all_host_data = []
-    all_accelerator_data = []
+def run_workload(config, tokenizer, prompt_generator, server, requester, dataset_gen, is_first_iter, is_last_iter):
+    dataset_gen: DatasetGenI = type(dataset_gen)(config)
+        
+    prompts = dataset_gen.gen_dataset(tokenizer, prompt_generator)
+    
+    launcher = WorkloadLauncher(
+        config, server, requester, prompts
+    )
 
+    result = asyncio.run(launcher.async_run(is_first_iter, is_last_iter))
+    
+    host_data = launcher.get_host_data()
+    acc_data = launcher.get_accelerator_data()
+    return result, host_data, acc_data
+
+def get_components_from_config(config):
     workload_components = WorkloadComponentFactory.build_components_from_config(config)
 
     tokenizer: TokenizerI = workload_components.tokenizer
-    dataset_gen: DatasetGenI= workload_components.dataset_gen
+    dataset_gen: DatasetGenI = workload_components.dataset_gen
     server: ServerI = workload_components.server
     requester: RequesterI = workload_components.requester
 
-    for i,prompt_size in enumerate(prompt_sizes):
-        config.prompt_size_range = (prompt_size,prompt_size)
-    
-        dataset_gen: DatasetGenI = type(dataset_gen)(config)
-        
-        prompts = dataset_gen.gen_dataset(tokenizer, prompt_generator)
-        
-        launcher = WorkloadLauncher(
-            config, server, requester, prompts
-        )
-
-        result = asyncio.run(launcher.async_run(i == 0, i == len(prompt_sizes) - 1))
-        
-        host_data = launcher.get_host_data()
-        acc_data = launcher.get_accelerator_data()
-
-        all_results.append(result)
-        all_host_data.append(host_data)
-        all_accelerator_data.append(acc_data)
-        requester.reset()
-
-    return all_results, all_host_data, all_accelerator_data
+    return tokenizer, dataset_gen, server, requester 
 
 def write_markdown(lines,config):
     output_dir = config.path_to_save_results + config.experiment_key
@@ -81,6 +75,8 @@ def write_config(config):
     os.makedirs(output_dir, exist_ok=True)
     config_path = Path(output_dir) / filename
     json_data = {var_name: getattr(config, var_name) for var_name in vars(config)}
+    if "api_key" in json_data:
+        del json_data["api_key"]  
     with open(config_path, "w") as f:
         f.write(json.dumps(json_data))
 
@@ -93,8 +89,16 @@ def initialize_writer(config):
 
     SingleCSVWriter.initialize(CSVDataFormat(None,None,None,None), csv_path)
 def write_results(config, results):
-    req_per_sec = config.num_requester_threads / config.requester_sleep_time
-    for result in results:
+    num_requesters = config.num_requesters if hasattr(config, "num_requesters") else None  
+    requester_sleep_times = config.requester_sleep_times if hasattr(config, "requester_sleep_times") else None  
+    for i, result in enumerate(results):
+        if num_requesters:
+            req_per_sec = num_requesters[i]
+        elif requester_sleep_times:
+            req_per_sec = config.num_requester_threads / requester_sleep_times[i]
+        else:
+            req_per_sec = config.num_requester_threads / config.requester_sleep_time
+            
         for prompt in result.get_all_prompts():
             csv_data = CSVDataFormat(config.experiment_key,config.model, req_per_sec, prompt)
             SingleCSVWriter.write(csv_data)
