@@ -2,18 +2,34 @@ import logging
 import argparse
 from src.binders.binder import Binder
 from src.catalogs.config_catalog import ConfigCatalog
-from src.utils.util_import import import_all_modules
+from src.utils.util_import import initialize_modules
 from src.utils.util_experiment import *
 from src.utils.util_assert import assert_all_decode_size_equal
-from src import components
-from src import parsers
 
-import_all_modules(components)
-import_all_modules(parsers)
+initialize_modules()
 
 @Binder.create_parse_from_config([ConfigCatalog._single_prompt_exp_config,
                                   ConfigCatalog._prompt_variation_config])
 def add_single_prompt_args(): pass
+
+def run_prompt_variation_exp_by_config(title, config):
+    config_logging(config.logging)
+
+    logging.info(f"----------- {title} -----------")
+    
+    config.max_out_tokens_range = (config.max_out_tokens, config.max_out_tokens)
+
+    prompt_sizes = config.prompt_sizes
+    prompt_generator = PromptGeneratorBase()
+    tokenizer, dataset_gen, server, requester = get_components_from_config(config)
+    results = LoadResults()
+
+    for i,prompt_size in enumerate(prompt_sizes):
+        config.prompt_size_range = (prompt_size,prompt_size)
+        all_results = run_workload(config, tokenizer, prompt_generator, server, requester, dataset_gen, i == 0, i == len(prompt_sizes) - 1)
+        results.add_data(*all_results)
+
+    return  results.get_all()
 
 def run(args):
     config = args
