@@ -368,13 +368,14 @@ def plot_throughputs(df, args):
 
 def gen_load_experiment_report(args, df):
     plots = []
-    columns = ["e2e_latency", "ttft", "ttft", "tbt_times", "tbt_times"]
-    percetiles = [99, 50, 99, 50, 99]
+    columns = ["e2e_latency","e2e_latency", "ttft", "ttft", "tbt_times", "tbt_times"]
+    percetiles = [50, 99, 50, 99, 50, 99]
 
     plt.figure(figsize=(8, 5))
     plots = plot_throughputs(df, args)
 
     titles = [
+        "End-to-End Latency Median(s)",
         "End-to-End Latency P99(s)",
         "Time To First Token Median (s)",
         "Time To First Token P99 (s)",
@@ -382,18 +383,23 @@ def gen_load_experiment_report(args, df):
         "Time Between Tokens P99 (s)"
     ]
     prompt_size = df["prompt_size"].mean()
-    decode_size = df["num_decoded_tokens"].max()
-    titles = [title + f" vs Throughput (tokens/s) with {prompt_size}/{decode_size} prompt size/max decode size" for title in titles]
+    decode_size = df["num_decoded_tokens"].mean()
+    titles = [title + f" vs Throughput (tokens/s) with {prompt_size}/{round(decode_size, 2)} prompt size/mean decode size" for title in titles]
     x_label = "Throughput (tokens/s)"
+
     image_names = [
+        "e2e_median_latency_vs_tok_per_sec.png",
         "e2e_latency_vs_tok_per_sec.png",
         "ttft_median_vs_tok_per_sec.png",
         "ttft_p99_vs_tok_per_sec.png",
         "tbt_median_vs_tok_per_sec.png",
         "tbt_p99_vs_tok_per_sec.png"
     ]
-    y_is_list_flags = [False, False, False, True, True]
+
+    y_is_list_flags = [False, False, False, False, True, True]
+
     y_labels = [
+        "End-to-End Latency Median (s)",
         "End-to-End Latency P99 (s)",
         "Time To First Token Median (s)",
         "Time To First Token P99 (s)",
