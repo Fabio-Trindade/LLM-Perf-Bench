@@ -10,7 +10,11 @@ from src.buffers.performance.performance_metrics_buffer import PerformanceMetric
 
 @ComponentClassRegistry.register_requester_workload(ComponentRegistry.openai)
 class OpenAIRequester(RequesterI):
-    async def async_request(self, queue: QueueI, buffer: PerformanceMetricsBuffer, server: ServerI):
+    def __init__(self, config):
+        super().__init__(config)
+        assert config.prompts_per_request == 1, "Only 1 prompt per request is supported with OpenAI."
+
+    async def async_request(self, req_id, prompts, buffer, server):
         config = self.config
 
         def get_template(prompt: str):
@@ -20,26 +24,16 @@ class OpenAIRequester(RequesterI):
             }
 
         server: OpenAIServer = server
-        prompts_per_request = config.prompts_per_request
-
-        assert prompts_per_request == 1, "Only 1 prompt per request is supported with OpenAI."
-
-        req_id = self.get_request_id()
-        i = 0
-
-        prompt, prompt_idx = await queue.get_prompt_and_idx_async()
         client = server.client 
-
-        messages = [get_template(prompt.prompt)]
-
-        buffer.initialize_metrics(prompt, (req_id, i), req_id, True)
+        prompt = prompts[0]
+        messages = [get_template(prompt)]
 
         try:
             stream = await client.chat.completions.create(
                 model=config.model,
                 messages=messages,
                 stream=True,
-                max_completion_tokens=prompt.max_out_tokens,
+                max_completion_tokens=config.max_out_tokens,
             )
         except Exception as e:
             logging.error(f"Error during OpenAI request: {e}")
@@ -49,4 +43,4 @@ class OpenAIRequester(RequesterI):
             content = event.choices[0].delta.content
             if content:
                 now = time.time()
-                buffer.add_decode_data((req_id, i), now, content)
+                buffer.add_decode_data((req_id, 0), now, content)

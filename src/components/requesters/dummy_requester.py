@@ -10,36 +10,28 @@ import time
 
 @ComponentClassRegistry.register_requester_workload(ComponentRegistry.dummy)
 class DummyRequester(RequesterI):
-    async def async_request(self, queue: QueueI, buffer: PerformanceMetricsBuffer, server: ServerI):
-        dummy_config = self.config
-        load_config = self.config
-        assert(self.config.prompts_per_request == 1), "We do not allow more than 1 prompt per request. We have to to assert all prompts are the same max_out_len first."
-
+    def __init__(self, config):
+        super().__init__(config)
+        self.config = config
+        self.prompts_per_request = config.prompts_per_request
+        self.infer_sleep_time = config.infer_sleep_time
+        self.max_out_tokens = config.max_out_tokens
+        
+    async def async_request(self,  req_id, prompts, buffer, server):
         
         async def infer():
-            await asyncio.sleep(dummy_config.infer_sleep_time)
+            await asyncio.sleep(self.infer_sleep_time)
 
-        prompts_per_request = load_config.prompts_per_request
-        req_id = self.get_request_id()
-        prompt_idx_list : list[int] = []
-        first_prompt = None
-        for i in range(prompts_per_request):
-            prompt, prompt_idx = await queue.get_prompt_and_idx_async()
-            buffer.initialize_metrics(prompt, (req_id, i), req_id, True)
-            prompt_idx_list.append(prompt_idx)
-            if first_prompt is None:
-                first_prompt = prompt
-
-    
+        prompts_per_request = self.prompts_per_request
         predicted_tokens = 0
-        total_target_pred_tokens = first_prompt.max_out_tokens * prompts_per_request 
+        total_target_pred_tokens = self.max_out_tokens * prompts_per_request 
 
         while predicted_tokens < total_target_pred_tokens:
-             for i,idx in enumerate(prompt_idx_list):
+             for i,idx in range(prompts_per_request):
                 await infer()
                 last_time = time.time()
                 key = (req_id, i)
-                buffer.add_decode_data(key, last_time,f"token_{predicted_tokens}")
+                buffer.add_decode_data(key, last_time,f"token_{int(predicted_tokens/prompts_per_request)}")
                 predicted_tokens += 1
                    
         

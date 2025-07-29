@@ -1,0 +1,24 @@
+python run_intervaled_load_exp.py \
+  --interval_percentage 5 \
+  --max_tokens_per_sec 17696 \
+  --prompt_size 1200 \
+  --max_out_tokens 64 \
+  --num_requester_threads 14 \
+  --num_prompt_gen_threads 1 \
+  --prompts_per_request 1 \
+  --run_time 60 \
+  --seed 1234 \
+  --dataset_gen synthetic \
+  --path_to_csv_filename results/intervaled_load_data.csv \
+  --path_to_save_results results/ \
+  --logging info \
+  --model facebook/opt-125m \
+  --model_name_alias opt_125m \
+  --experiment_key opt_125m_intervaled_load_exp \
+  --requester vllm \
+  --tokenizer HF \
+  --server dummy \
+  --port 8000 \
+  --endpoint completions \
+  --host localhost \
+  --ignore_eos True

@@ -17,15 +17,7 @@ class VLLMRequester(RequesterI):
         self.vllm_server_url = get_url_from_config(config)
         self.timeout = self.requester_config.vllm_request_timeout
 
-    async def async_request(self, queue, buffer, server):
-        prompts, prompt_idx_list = [], []
-        req_id = self.get_request_id()
-        for i in range(self.prompts_per_request):
-            prompt, prompt_idx = await queue.get_prompt_and_idx_async()
-            buffer.initialize_metrics(prompt, (req_id, i), req_id, True)
-            prompt_idx_list.append(prompt_idx)
-            prompts.append(prompt.prompt)
-
+    async def async_request(self, req_id, prompts, buffer, server):
         request_template = {
             "model": self.model,
             "prompt": prompts,
@@ -34,8 +26,8 @@ class VLLMRequester(RequesterI):
             "ignore_eos": self.config.ignore_eos,
             "n": 1,
             "skip_special_tokens": False,
-            "max_tokens": prompt.max_out_tokens,
-            "min_tokens": prompt.max_out_tokens
+            "max_tokens": self.max_tokens,
+            "min_tokens": self.max_tokens
             }
 
         
@@ -65,7 +57,7 @@ class VLLMRequester(RequesterI):
                             for choice in data.get("choices", []):
                                 idx = choice.get("index", -1)
                                 text = choice.get("text", "")
-                                
+                               
                                 if text:
                                     key = (req_id, idx)
                                     current_time = time.time()
@@ -78,4 +70,5 @@ class VLLMRequester(RequesterI):
 
             except Exception as e:
                 print(f"Request error: {str(e)}")
+                
           
