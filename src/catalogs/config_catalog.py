@@ -93,9 +93,17 @@ class ConfigCatalog:
         config_field("max_out_tokens", True, int, 1, desc = "Later")
     ])
 
+    _load_exp_config = create_namespace_from_fields(FIELDS, [
+        config_field("num_requesters", True, int, [10,20], desc = "Later", nargs='+'),
+        config_field("prompt_size", True, int, [10,20], desc = "Later"),
+        config_field("max_out_tokens", True, int, 1, desc = "Later")
+    ])
+
     _intervaled_load_config = create_namespace_from_fields(FIELDS, [
         config_field("interval_percentage", True, float, 5, desc = "Later"),
-        config_field("prompt_size_for_max_load", True, int, 1, desc = "Later")
+        config_field("max_tokens_per_sec", True, float, 1, desc = "Later"),
+        config_field("prompt_size", True, int, [10,20], desc = "Later"),
+        config_field("max_out_tokens", True, int, 1, desc = "Later")
     ])
 
     #components
