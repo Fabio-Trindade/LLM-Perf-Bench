@@ -12,18 +12,20 @@ initialize_modules()
 @Binder.create_parse_from_config(ConfigCatalog._load_exp_config)
 def add_load_exp_args(): pass
 
-def run_load_exp(config):
+def config_load_exp(config):
     config_logging(config.logging)
-
-    logging.info(f"----------- Running Load Experiment -----------")
-
     prompt_size = config.prompt_size
     config.prompt_size_range = (prompt_size, prompt_size)
     config.max_out_tokens_range = (config.max_out_tokens, config.max_out_tokens)
     prompt_generator = PromptGeneratorBase()
     
     tokenizer, dataset_gen, server, requester = get_components_from_config(config)
+    return tokenizer, dataset_gen, server, requester, prompt_generator
     
+def run_load_exp(config, save):
+    tokenizer, dataset_gen, server, requester, prompt_generator = config_load_exp(config)
+    logging.info(f"----------- Running Load Experiment -----------")
+
     results = LoadResults()
     num_requesters = config.num_requesters
 
@@ -34,8 +36,9 @@ def run_load_exp(config):
 
     all_results, all_host_data, all_accelerator_data = results.get_all()
     logging.warning("Continue the implementation [file=run_single_prompt.py]. Missing host and GPU usage")
-    finish_experiment(all_results,config)
-
+    if save:
+        finish_experiment(all_results,config)
+    return results
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     
@@ -44,4 +47,4 @@ if __name__ == "__main__":
     }
 
     args = get_args_from_parser(parser, fixed_args, add_load_exp_args)
-    run_load_exp(config = args)
+    run_load_exp(config = args, save = True)
