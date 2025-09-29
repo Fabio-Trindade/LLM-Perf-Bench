@@ -14,7 +14,6 @@ from src.components.dataset_generator.dataset_generator_interface import Dataset
 from src.components.requesters.requester_interface import RequesterI
 from src.workload_launcher import WorkloadLauncher
 from src.utils.util_logging import config_logging
-import logging
 from src.utils.single_csv_writer import SingleCSVWriter
 from src.utils.util_assert import assert_all_decode_size_equal
 from fractions import Fraction
@@ -70,7 +69,8 @@ def write_markdown(lines,config):
     print(f"✅ Markdown report saved to: {markdown_path}")
 
 def write_config(config):
-    output_dir = config.path_to_save_results + config.experiment_key
+    experiment_key = config.model if config.experiment_key is None else config.experiment_key 
+    output_dir = config.path_to_save_results + experiment_key
     filename = "config.json"
     os.makedirs(output_dir, exist_ok=True)
     config_path = Path(output_dir) / filename
