@@ -29,12 +29,10 @@ if __name__ == "__main__":
     
     print("\n\n=========== Finding max number of parallel sequences ===========\n", flush=True)
 
-    # max_num_seqs = find_best_num_parallel_batches_vllm(
-    #     args.model, args.prompt_size, args.max_out_tokens, args.initial_batch_size,
-    #     args.dtype, args.gpu_memory_utilization, args.seed, args.port
-    # )
-
-    max_num_seqs = 224
+    max_num_seqs = find_best_num_parallel_batches_vllm(
+        args.model, args.prompt_size, args.max_out_tokens, args.initial_batch_size,
+        args.dtype, args.gpu_memory_utilization, args.seed, args.port
+    )
 
     print(f"\n =========== Max number of parallel sequences found: {max_num_seqs} =========== \n\n", flush=True)
 
