@@ -1,5 +1,5 @@
 MODELS=(
-    "meta-llama/Llama-2-7b"
+    "huggyllama/llama-7b"
     "meta-llama/Meta-Llama-3-8B"
 )
 
