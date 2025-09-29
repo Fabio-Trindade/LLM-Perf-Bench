@@ -44,7 +44,7 @@ class WorkloadLauncher():
         if init_server:
             self.init_server()
 
-        self.start_monitors()
+        # self.start_monitors()
 
         await self.load_generator.async_initialize_queue(self.prompt_sampler,self.load_generator.get_total_prompts())
         # prompt_tasks = self.load_generator.create_async_continuous_prompt_generation_tasks(self.prompt_sampler)
@@ -59,7 +59,7 @@ class WorkloadLauncher():
 
         final_time = time.time()
 
-        self.finish_monitors()
+        # self.finish_monitors()
         
         exp_time = final_time - initial_time
 
