@@ -1,5 +1,6 @@
 import argparse
 import copy
+import math
 from run_load_exp import add_load_exp_args, config_load_exp
 from src.utils.util_import import initialize_modules
 from src.utils.util_experiment import get_args_from_parser, run_workload
@@ -12,7 +13,7 @@ def parse_best_num_requester_args(parser, fixed_args):
             help="Initial run time in seconds.")
     add_arg(parser, "max_num_requesters", fixed_args, type=int, default=600,
             help="Maximum run time in seconds.")
-    add_arg(parser, "increment_requester_value", fixed_args, type=int, default=60,
+    add_arg(parser, "increment_requester_value", fixed_args, type=float, default=60,
             help="Increment time in seconds.")
     add_arg(parser, "epsilon_requester", fixed_args, type=float, default=0.05,
             help="Epsilon for throughput convergence.")
@@ -40,10 +41,10 @@ def find_best_num_requesters(config):
             else:
                 print(f"Last thp: {last_thp} - Current thp: {cur_thp} - var = {cur_thp/last_thp}")
                 last_thp = cur_thp
-        cur_num_requester += increment_value
+        cur_num_requester = math.ceil(increment_value * cur_num_requester)
 
     server.shutdown()
-    return cur_num_requester - increment_value, last_thp
+    return math.floor(cur_num_requester/increment_value), last_thp
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     fixed_args = {
