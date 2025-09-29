@@ -22,7 +22,7 @@ def parse_best_batch_args(argparser: argparse.ArgumentParser, fixed_args):
 
     
 def infer(port, model_name, prompt_size, max_out_tokens, num_seqs, dtype,gpu_memory_utilization, seed):
-    server_process = start_and_wait_vllm_server(model_name,port,prompt_size + max_out_tokens, num_seqs,dtype, gpu_memory_utilization,seed, "auto")
+    server_process = start_and_wait_vllm_server(model_name,port,prompt_size + max_out_tokens, num_seqs,dtype, gpu_memory_utilization,seed)
     kill_vllm_server_process(server_process)
 
 def find_best_num_parallel_batches_vllm(model_name, prompt_size, max_out_tokens, initial_batch_size, dtype,
