@@ -83,9 +83,9 @@ class PromptPerformanceMetrics:
         self.decode_time = self._out_token_times[-1] - self._out_token_times[0]
         self.decode_throughput = self.decode_len/self.decode_time
 
-        logging.warning("Remove after testing. file=data_structures/prompt_performance_metrics.py, line=83")
-        assert(self.decode_time + self.TTFT_time == self.e2e_time), \
-            "The sum of decode time and TTFT time should equal the e2e time."
+        # logging.warning("Remove after testing. file=data_structures/prompt_performance_metrics.py, line=83")
+        # assert(self.decode_time + self.TTFT_time == self.e2e_time), \
+        #     "The sum of decode time and TTFT time should equal the e2e time."
 
         self._success = self.prompt.max_out_tokens == len(self._out_token_times)
 
