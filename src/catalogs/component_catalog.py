@@ -1,7 +1,7 @@
 class ComponentCatalog:
     _requester_instances = ["dummy","vllm", "openai"]
     _config_instances = ["dummy", "openai"]
-    _tokenizer_instances = ["HF", "openai", "whitespace","vLLM"]
+    _tokenizer_instances = ["HF", "openai", "whitespace","vllm"]
     _dataset_gen_instances = ["synthetic", "replay"]
     
     _types = ["parser", "workload"]
