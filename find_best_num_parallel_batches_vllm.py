@@ -39,6 +39,7 @@ def find_best_num_parallel_batches_vllm(model_name, prompt_size, max_out_tokens,
     last_worst_batch_size = float("inf")
     cur_batch_size = initial_batch_size
     num_out_of_memory = 0
+
     while cur_batch_size != last_valid_batch_size:
         # prompts = [prompt.prompt] * cur_batch_size
         try:
@@ -50,7 +51,9 @@ def find_best_num_parallel_batches_vllm(model_name, prompt_size, max_out_tokens,
                 cur_batch_size = (last_valid_batch_size + last_worst_batch_size) // 2
         except Exception as e:
             last_worst_batch_size = cur_batch_size
+            print(f"\nFailed at batch size {cur_batch_size}")
             cur_batch_size = (last_valid_batch_size + cur_batch_size) // 2
+            print(f"Trying batch size {cur_batch_size}")
             num_out_of_memory += 1
     return last_valid_batch_size
 
