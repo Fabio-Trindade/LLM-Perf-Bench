@@ -4,7 +4,7 @@ from src.components.tokenizers.tokenizer_interface import TokenizerI
 from vllm.transformers_utils.tokenizer import encode_tokens, decode_tokens, get_tokenizer
 
 
-@ComponentClassRegistry.register_tokenizer_workload(ComponentRegistry.vLLM)
+@ComponentClassRegistry.register_tokenizer_workload(ComponentRegistry.vllm)
 class vLLMTokenizer(TokenizerI):
     def __init__(self, config):
         self.tokenizer = get_tokenizer(config.model)
