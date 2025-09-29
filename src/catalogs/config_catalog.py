@@ -2,7 +2,6 @@ import logging
 from types import SimpleNamespace
 from src.enums.enum_logging import EnumLogging
 from src.catalogs.component_catalog import ComponentCatalog
-from src.registries.component_registry import ComponentRegistry
 from src.utils.util_enum import get_string_values_list
 
 NAME = "name"
@@ -105,10 +104,24 @@ class ConfigCatalog:
         config_field("prompt_size", True, int, [10,20], desc = "Later"),
         config_field("max_out_tokens", True, int, 1, desc = "Later")
     ])
-
+    
+    # argparser = argparse.ArgumentParser()
+    # argparser.add_argument("--model", type=str, default="")
+    # argparser.add_argument("--prompt-size", type=int)
+    # argparser.add_argument("--max-out-tokens", type=int, default=64)
+    # argparser.add_argument("--initial-batch-size", type=int, default=1)
+    # argparser.add_argument("--dtype", type=str, default="float16")
+    # argparser.add_argument("--gpu-memory-utilization", type=float, default=0.9)
+    _vllm_serve_config = create_namespace_from_fields(FIELDS, [
+        config_field("port", True, int, 8000, "Port to run the vLLM server on"),
+        config_field("max_model_len", False, int, 2048, "Maximum model length"),
+        config_field("max_num_seqs", True, int, 8, "Maximum number of sequences"),
+        config_field("dtype", True, str, "float16", "Data type for model (e.g., float16, float32)"),
+        config_field("gpu_memory_utilization", True, float, 0.9, "GPU memory utilization for vLLM"),
+    ])
     #components
     _launcher_config = get_launcher_config()
-
+         
     _vllm_config = create_namespace_from_fields(FIELDS, [
         config_field("host", True, str,None, "Server host"),
         config_field("port", True, str,None, "Server port"),
