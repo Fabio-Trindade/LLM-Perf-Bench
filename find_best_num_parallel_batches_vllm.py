@@ -1,12 +1,4 @@
 import argparse
-import logging
-import os
-import signal
-from types import SimpleNamespace
-
-from src.prompt_generator.prompt_generator import PromptGeneratorBase
-from src.components.tokenizers.vllm_tokenizer import vLLMTokenizer
-from vllm import LLM, SamplingParams, LLM
 from src.utils.vllm_utils import kill_vllm_server_process, start_and_wait_vllm_server
 from src.utils.util_parse import add_arg
 
@@ -45,10 +37,14 @@ def find_best_num_parallel_batches_vllm(model_name, prompt_size, max_out_tokens,
         try:
             infer(port,model_name, prompt_size, max_out_tokens, cur_batch_size, dtype,gpu_memory_utilization,seed)
             last_valid_batch_size = cur_batch_size
+            print(f"\nSucceeded at batch size {last_valid_batch_size}")
             if last_worst_batch_size == float("inf"):
+                print(f"Trying batch size {cur_batch_size * 2}")
                 cur_batch_size *= 2
             else:
+                print(f"Trying batch size {(last_valid_batch_size + last_worst_batch_size) // 2}")
                 cur_batch_size = (last_valid_batch_size + last_worst_batch_size) // 2
+
         except Exception as e:
             last_worst_batch_size = cur_batch_size
             print(f"\nFailed at batch size {cur_batch_size}")
