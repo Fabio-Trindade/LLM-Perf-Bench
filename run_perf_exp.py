@@ -55,17 +55,23 @@ if __name__ == "__main__":
         parse_best_num_requester_args, 
         add_intervaled_load_exp_args
     )
+    try:
+        print("\n=========== Initializing vLLM server ===========\n")
+        server_process = start_and_wait_vllm_server(
+            args.model,
+            args.port,
+            args.prompt_size + args.max_out_tokens,
+            max_num_seqs,
+            args.dtype,
+            args.gpu_memory_utilization,
+            args.seed
+        )
+        print("=========== Server initialized successfully =========== ")
+    except Exception as e:
+        print(f"Failed to start vLLM server:")
+        raise e
 
-    print("\n=========== Initializing vLLM server ===========\n")
-    server_process = start_and_wait_vllm_server(
-        args.model,
-        args.port,
-        args.prompt_size + args.max_out_tokens,
-        max_num_seqs,
-        args.dtype,
-        args.gpu_memory_utilization,
-        args.seed
-    )
+
 
     print("\n\n=========== Running load simulations to find best number of requesters ===========\n")
     best_num_requesters, max_thp_req = find_best_num_requesters(config=args)
