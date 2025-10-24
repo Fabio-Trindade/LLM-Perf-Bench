@@ -113,11 +113,7 @@ class ConfigCatalog:
     # argparser.add_argument("--dtype", type=str, default="float16")
     # argparser.add_argument("--gpu-memory-utilization", type=float, default=0.9)
     _vllm_serve_config = create_namespace_from_fields(FIELDS, [
-        config_field("port", True, int, 8000, "Port to run the vLLM server on"),
-        config_field("max_model_len", False, int, 2048, "Maximum model length"),
-        config_field("max_num_seqs", True, int, 8, "Maximum number of sequences"),
-        config_field("dtype", True, str, "float16", "Data type for model (e.g., float16, float32)"),
-        config_field("gpu_memory_utilization", True, float, 0.9, "GPU memory utilization for vLLM"),
+
     ])
     #components
     _launcher_config = get_launcher_config()
@@ -126,12 +122,14 @@ class ConfigCatalog:
         config_field("host", True, str,None, "Server host"),
         config_field("port", True, str,None, "Server port"),
         config_field("endpoint", True, str,None, "API endpoint"),
-        config_field("vllm_server_init_timeout", True, int,None, "API endpoint"),
+        # config_field("vllm_server_init_timeout", True, int,None, "API endpoint"),
         # config_field("num_answers", True, int, None, "API endpoint"),
         # config_field("use_beam_search", True, bool,None, "API endpoint"),
         # config_field("temperature", True, float,None, "API endpoint"),
         config_field("ignore_eos", True, bool,True, "API endpoint"),
         config_field("vllm_request_timeout", True , int, None, "API endpoint"),
+        config_field("vllm_serve_args", False, str, [], "without model_name and port", nargs="*"),
+
     ])
 
     _dummy_config = create_namespace_from_fields(FIELDS, [

@@ -2,7 +2,7 @@ import argparse
 import copy
 from run_load_exp import add_load_exp_args, config_load_exp
 from src.utils.util_import import initialize_modules
-from src.utils.util_experiment import get_args_from_parser, run_workload
+from src.utils.util_experiment import get_args_from_parser, run_workload_loop
 from src.utils.util_parse import add_arg
 
 initialize_modules()
@@ -28,8 +28,8 @@ def find_best_run_time(config):
     
     while cur_time <= max_run_time:
         config.run_time = cur_time
-        perf_results = run_workload(config, tokenizer, prompt_generator, server, requester, dataset_gen, last_thp == None, cur_time == max_run_time)[0]
-        
+        load_results = run_workload_loop(config, tokenizer, prompt_generator, server, requester, dataset_gen)
+        perf_results = load_results.all_results[0]
         if last_thp is None:
             last_thp = perf_results.calc_total_throughput()
         else:
@@ -37,7 +37,7 @@ def find_best_run_time(config):
             if 1 - epsilon <= cur_thp/last_thp <= 1 + epsilon:
                 print(f"Last thp: {last_thp} - Current thp: {cur_thp} - var = {cur_thp}/{last_thp}")
                 break
-            else:
+            else:   
                 print(f"Last thp: {last_thp} - Current thp: {cur_thp} - var = {cur_thp}/{last_thp}")
                 last_thp = cur_thp
         cur_time += increment_time

@@ -1,76 +1,81 @@
-import atexit
+import itertools
 import logging
-import platform
+import signal
 import subprocess
+import sys
 import requests
 import time
 import os
 from src.registries.component_class_registry import ComponentClassRegistry
 from src.registries.component_registry import ComponentRegistry
 from src.components.servers.server_interface import ServerI
-from src.utils.vllm_utils import get_url, get_url_from_config 
 
 @ComponentClassRegistry.register_server_workload(ComponentRegistry.vllm)
 class vLLMServer(ServerI):
     def __init__(self, config):
         self.vllm_config = config 
-        self.init_timeout = self.vllm_config.vllm_server_init_timeout
         self.model = config.model
         self.server_process = None
-        self.url = get_url(config.host, config.port, "health")
-        self.is_windows = platform.system() == "Windows"
-        atexit.register(self.cleanup)
-        self.log_path = "logs/"
-        raise ValueError("Initialize the vLLM server using the terminal and select the dummy server instead of the vLLM server.")
+        self.process = None
+        self.port = config.port
+        self.seed = config.seed
+        
+    def start_vllm_server(self):
+        cmd = [
+            "vllm", "serve", self.model, "--port", self.port,
+            "--seed", str(self.seed)
+        ] + self.vllm_config.vllm_serve_args
 
-    def _wait_server_initialize(self):
-        logging.info("Waiting for the vLLM server to start...")
-        start_time = time.time()
-        while time.time() - start_time < self.init_timeout:
-            logging.info(f"Time: {time.time() - start_time}/{self.init_timeout}")
+        logging.info(f"Starting vLLM server: \n{' '.join(cmd)}")
+
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            close_fds=True
+        )
+        
+        return process
+    
+    def wait_vllm_server_ready(self,port, process, timeout=360):
+        symbols = itertools.cycle("|/-\\")
+        start = time.time()
+        while True:
+            if process.poll() is not None:  
+                stderr_output = process.stderr.read().decode() if process.stderr else ""
+                raise RuntimeError(
+                    f"vLLM server crashed with code {process.returncode}\nLogs:\n{stderr_output}"
+                )
             try:
-                response = requests.get(self.url)
-                if response.status_code == 200:
-                    logging.info("vLLM server initialized successfully!")
-                    return True
-            except requests.ConnectionError:
-                pass
-            time.sleep(1)
-        raise TimeoutError(f"Server didn't initialize within {self.init_timeout} seconds.")
+                r = requests.get(f"http://localhost:{port}/health/", timeout=1)
+                if r.status_code == 200:
+                    break
+            except requests.exceptions.RequestException:
+                if time.time() - start > timeout:
+                    raise TimeoutError("Timeout waiting for vLLM server to start")
+                print(f"\rWaiting for vLLM server to initialize... {next(symbols)}", end="")
+                time.sleep(0.2)
+        logging.info(f"\nvLLM server is up.")
+
+
+    def kill_vllm_server_process(self,process: subprocess.Popen):
+        try:
+            os.kill(process.pid, signal.SIGINT)
+            process.wait(timeout=10)
+        except Exception:
+            process.kill()
+            process.wait()
+
 
     def init(self):
-        command = [
-            "vllm", "serve", self.model
-        ]
-        if not os.path.exists(self.log_path):
-            os.makedirs(self.log_path)
-        with open(self.log_path+"server_log.log", "w") as logfile:
-            if self.is_windows:
-                self.server_process = subprocess.Popen(
-                    command,
-                    stdout=logfile,
-                    stderr=logfile
-                )
-            else:
-                self.server_process = subprocess.Popen(
-                    command,
-                    preexec_fn=os.setsid,
-                    stdout=logfile,
-                    stderr=logfile
-                )
-
-        self._wait_server_initialize()
+        try:
+            self.process = self.start_vllm_server()
+            self.wait_vllm_server_ready(self.port, self.process)
+        except Exception as e:
+            self.kill_vllm_server_process(self.process)
+            raise e
 
     def shutdown(self):
-        return self.cleanup()
+        self.kill_vllm_server_process(self.process)
 
-    def cleanup(self):
-        print("Shutting down vLLM server...")
-        if self.server_process:
-            try:
-                if self.server_process:
-                    self.server_process.terminate()
-                    self.server_process = None
-
-            except Exception as e:
-                print(f"[Warning] Failed to terminate the server process: {e}")
+    

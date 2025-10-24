@@ -17,6 +17,7 @@ from src.utils.util_logging import config_logging
 from src.utils.single_csv_writer import SingleCSVWriter
 from src.utils.util_assert import assert_all_decode_size_equal
 from fractions import Fraction
+
 class LoadResults:
     def __init__(self,):
         self.all_results = []
@@ -31,7 +32,7 @@ class LoadResults:
     def get_all(self):
         return self.all_results, self.all_host_data, self.all_accelerator_data
 
-def run_workload(config, tokenizer, prompt_generator, server, requester, dataset_gen, is_first_iter, is_last_iter):
+async def run_single_async_workload(config, tokenizer, prompt_generator, server, requester, dataset_gen):
     dataset_gen: DatasetGenI = type(dataset_gen)(config)
         
     prompts = dataset_gen.gen_dataset(tokenizer, prompt_generator)
@@ -40,12 +41,33 @@ def run_workload(config, tokenizer, prompt_generator, server, requester, dataset
         config, server, requester, prompts
     )
 
-    result = asyncio.run(launcher.async_run(is_first_iter, is_last_iter))
+    result = await launcher.async_run()
     
     host_data = launcher.get_host_data()
     acc_data = launcher.get_accelerator_data()
     return result, host_data, acc_data
 
+async def run_single_async_workload_with_req_context_manager(config, tokenizer, prompt_generator, server, requester, dataset_gen):
+    async with requester:
+        return await run_single_async_workload(config, tokenizer, prompt_generator, server, requester, dataset_gen)
+
+def run_workload_loop(config, tokenizer, prompt_generator, server, requester, dataset_gen, loop_values = [None], var_to_set = None):
+    results = LoadResults()
+    all_results = []
+    workload_runner = run_single_async_workload_with_req_context_manager if hasattr(requester, "__aenter__") else run_single_async_workload
+    for value in loop_values:
+        if var_to_set is not None:
+            setattr(config, var_to_set, value)
+        all_results = asyncio.run(
+            workload_runner(
+                config,tokenizer, prompt_generator, server, requester, dataset_gen
+            )
+        )
+        results.add_data(*all_results)
+    return results
+
+
+    
 def get_components_from_config(config):
     workload_components = WorkloadComponentFactory.build_components_from_config(config)
 

@@ -3,7 +3,7 @@ import copy
 import math
 from run_load_exp import add_load_exp_args, config_load_exp
 from src.utils.util_import import initialize_modules
-from src.utils.util_experiment import get_args_from_parser, run_workload
+from src.utils.util_experiment import get_args_from_parser, run_workload_loop
 from src.utils.util_parse import add_arg
 
 initialize_modules()
@@ -21,20 +21,23 @@ def parse_best_num_requester_args(parser, fixed_args):
 
 def find_best_num_requesters(config):
     tokenizer, dataset_gen, server, requester, prompt_generator = config_load_exp(config)
+    server.init()
     epsilon = config.epsilon_requester
     max_num_requester = config.max_num_requesters
     increment_value = config.increment_requester_value
     cur_num_requester = config.initial_num_requester
     last_thp = None
+    max_thp = -math.inf
 
     while cur_num_requester <= max_num_requester:
         config.num_requester_threads = cur_num_requester
-        perf_results = run_workload(config, tokenizer, prompt_generator, server, requester, dataset_gen, last_thp == None, cur_num_requester == max_num_requester)[0]
-        
+        load_results = run_workload_loop(config, tokenizer, prompt_generator, server, requester, dataset_gen)
+        perf_results = load_results.all_results[0]
         if last_thp is None:
             last_thp = perf_results.calc_total_throughput()
         else:
             cur_thp = perf_results.calc_total_throughput()
+            max_thp = max(max_thp, cur_thp)
             if 1 - epsilon <= cur_thp/last_thp <= 1 + epsilon:
                 print(f"Last thp: {last_thp} - Current thp: {cur_thp} - var = {cur_thp/last_thp}")
                 break
@@ -44,7 +47,8 @@ def find_best_num_requesters(config):
         cur_num_requester = math.ceil(increment_value * cur_num_requester)
 
     server.shutdown()
-    return math.floor(cur_num_requester/increment_value), last_thp
+    return cur_num_requester, max_thp
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     fixed_args = {

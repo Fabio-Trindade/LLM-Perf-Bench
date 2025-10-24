@@ -26,40 +26,18 @@ class WorkloadLauncher():
     def get_accelerator_data(self) -> HostData:
         return self.monitors[1].get_data()
     
-    def start_monitors(self):
-        for monitor in self.monitors:
-            monitor.init()
-
-    def finish_monitors(self):
-        for monitor in self.monitors:
-            monitor.shutdown()
-    
-    def init_server(self,):
-        self.server.init()
-
-    def shutdown_server(self):
-        self.server.shutdown()
-
-    async def async_run(self, init_server: bool, shutdown_server: bool) -> PerfResults:
-        if init_server:
-            self.init_server()
-
-        # self.start_monitors()
+    async def async_run(self) -> PerfResults:
 
         await self.load_generator.async_initialize_queue(self.prompt_sampler,self.load_generator.get_total_prompts())
-        # prompt_tasks = self.load_generator.create_async_continuous_prompt_generation_tasks(self.prompt_sampler)
         
         initial_time = time.time()
 
         request_tasks = await self.load_generator.create_async_continuous_request_tasks(self.requester, self.server)
 
         await asyncio.gather(*request_tasks)
-        # self.load_generator.stop_load()
-        # await asyncio.gather(*prompt_tasks)
 
         final_time = time.time()
 
-        # self.finish_monitors()
         
         exp_time = final_time - initial_time
 
@@ -68,9 +46,6 @@ class WorkloadLauncher():
 
         all_request_prompts = buffer.get_prompts_grouped_by_request()
 
-        if shutdown_server:
-            self.shutdown_server()
-        
         return PerfResults(all_request_prompts, exp_time)
 
 
