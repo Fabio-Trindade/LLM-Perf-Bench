@@ -7,6 +7,7 @@ def parse_best_batch_args(argparser: argparse.ArgumentParser, fixed_args):
     add_arg(argparser, "model", fixed_args, type=str, default="")
     add_arg(argparser, "seed", fixed_args, type=int, default = 1234)
     add_arg(argparser, "port", fixed_args, type=str, default = "8000")
+    add_arg(argparser, "vllm_param_to_optimize", fixed_args, type=str, default = "max-batched-tokens")
     add_arg(argparser, "vllm_serve_args", fixed_args, type=str.split, default = [])
 
     
@@ -22,42 +23,42 @@ def find_idx_of_arg(arg_list, arg_name):
             return i
     return -1
 
-def find_best_num_parallel_batches_vllm(port, model_name, seed, vllm_serve_args):
+def optimize_vllm_parameter(port, model_name, seed, vllm_serve_args, vllm_param_to_optimize):
     if model_name is None or model_name == "":
         raise ValueError("model_name is None or empty string")
 
     # tokenizer = vLLMTokenizer(config)
     # prompt_generator = PromptGeneratorBase()
     # prompt = prompt_generator.gen_prompt(tokenizer, prompt_size, max_out_tokens)
-    max_parallel_seq_idx = find_idx_of_arg(vllm_serve_args, "max-num-seqs")
-    assert (max_parallel_seq_idx != -1)
-    last_valid_batch_size = 0
+    key_idx = find_idx_of_arg(vllm_serve_args,vllm_param_to_optimize)
+    assert (key_idx != -1)
+    last_valid_batch = 0
     last_worst_batch_size = float("inf")
-    cur_batch_size = int(vllm_serve_args[max_parallel_seq_idx + 1])
+    cur_value = int(vllm_serve_args[key_idx + 1])
     num_out_of_memory = 0
 
-    while cur_batch_size != last_valid_batch_size:
-        # prompts = [prompt.prompt] * cur_batch_size
-        vllm_serve_args[max_parallel_seq_idx + 1] = str(cur_batch_size)
+    while cur_value != last_valid_batch:
+        # prompts = [prompt.prompt] * cur_value
+        vllm_serve_args[key_idx + 1] = str(cur_value)
         try:
             infer(port,model_name, seed,vllm_serve_args)
-            last_valid_batch_size = cur_batch_size
-            print(f"\nSucceeded at batch size {last_valid_batch_size}")
+            last_valid_batch = cur_value
+            print(f"\nSucceeded at value {last_valid_batch}")
             if last_worst_batch_size == float("inf"):
-                print(f"Trying batch size {cur_batch_size * 2}")
-                cur_batch_size *= 2
+                print(f"Trying value {cur_value * 2}")
+                cur_value *= 2
             else:
-                print(f"Trying batch size {(last_valid_batch_size + last_worst_batch_size) // 2}")
-                cur_batch_size = (last_valid_batch_size + last_worst_batch_size) // 2
+                print(f"Trying value {(last_valid_batch + last_worst_batch_size) // 2}")
+                cur_value = (last_valid_batch + last_worst_batch_size) // 2
 
         except Exception as e:
             # raise e
-            last_worst_batch_size = cur_batch_size
-            print(f"\nFailed at batch size {cur_batch_size}")
-            cur_batch_size = (last_valid_batch_size + cur_batch_size) // 2
-            print(f"Trying batch size {cur_batch_size}")
+            last_worst_batch_size = cur_value
+            print(f"\nFailed at value {cur_value}")
+            cur_value = (last_valid_batch + cur_value) // 2
+            print(f"Trying value {cur_value}")
             num_out_of_memory += 1
-    return last_valid_batch_size
+    return last_valid_batch
 
 if __name__ == "__main__":
     argparser = argparse.ArgumentParser()
@@ -68,7 +69,7 @@ if __name__ == "__main__":
         args.port, args.model_name, args.seed, args.vllm_serve_args
     )
 
-    print(f"\n\nBest batch size (vLLM): {max_num_seqs}\n\n")
+    print(f"\n\nBest value (vLLM): {max_num_seqs}\n\n")
 
 
 
