@@ -28,12 +28,21 @@ class vLLMServer(ServerI):
 
         logging.info(f"Starting vLLM server: \n{' '.join(cmd)}")
 
+        # process = subprocess.Popen(
+        #     cmd,
+        #     stdout=subprocess.PIPE,
+        #     stderr=subprocess.PIPE,
+        #     close_fds=True
+        # )
+
         process = subprocess.Popen(
             cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
             close_fds=True
         )
+
+
         
         return process
     
@@ -61,7 +70,7 @@ class vLLMServer(ServerI):
     def kill_vllm_server_process(self,process: subprocess.Popen):
         try:
             os.kill(process.pid, signal.SIGINT)
-            process.wait(timeout=10)
+            process.wait(timeout=360)
         except Exception:
             process.kill()
             process.wait()
