@@ -127,7 +127,7 @@ class ConfigCatalog:
         # config_field("use_beam_search", True, bool,None, "API endpoint"),
         # config_field("temperature", True, float,None, "API endpoint"),
         config_field("ignore_eos", True, bool,True, "API endpoint"),
-        config_field("vllm_request_timeout", True , int, None, "API endpoint"),
+        config_field("vllm_request_timeout", False , int, None, "API endpoint"),
         config_field("vllm_serve_args", False, str, [], "without model_name and port", nargs="*"),
 
     ])

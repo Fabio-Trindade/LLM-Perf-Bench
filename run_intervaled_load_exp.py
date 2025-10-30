@@ -33,7 +33,7 @@ def run_intervaled_load_exp(config):
     tokens_per_sec_frac = (config.max_tokens_per_sec)/total_intervals
     targets_thp = [tokens_per_sec_frac*i for i in range(1, total_intervals + 1)] 
     num_requesters = config.num_requester_threads
-    num = num_requesters*(prompt_size + max_out_tokens) * config.prompts_per_request
+    num = num_requesters*(prompt_size) * config.prompts_per_request
     requester_sleep_times = [num/thp for thp in targets_thp]
 
     results = run_workload_loop(config, tokenizer, prompt_generator, server, requester, dataset_gen, requester_sleep_times, "requester_sleep_time")
