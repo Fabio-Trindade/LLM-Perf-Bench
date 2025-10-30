@@ -8,7 +8,7 @@ from vllm.transformers_utils.tokenizer import encode_tokens, decode_tokens, get_
 class vLLMTokenizer(TokenizerI):
     def __init__(self, config):
         self.tokenizer = get_tokenizer(config.model)
-        self.is_chat_model = "chat" in config.completions
+        self.is_chat_model = "chat" in config.endpoint
     
     def tokenize(self, prompt):
         return encode_tokens(self.tokenizer, prompt, add_special_tokens=False)
