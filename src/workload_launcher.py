@@ -32,9 +32,9 @@ class WorkloadLauncher():
         
         initial_time = time.time()
 
-        request_tasks = await self.load_generator.create_async_continuous_request_tasks(self.requester, self.server)
+        await self.load_generator.run(self.requester, self.server)
 
-        await asyncio.gather(*request_tasks)
+        # await asyncio.gather(*request_tasks, return_exceptions=True)
 
         final_time = time.time()
 

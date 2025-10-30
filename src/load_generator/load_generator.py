@@ -49,26 +49,42 @@ class LoadGenerator:
     def get_total_requests(self):
         return int(self.load_config.run_time* self.load_config.num_requester_threads/self.load_config.requester_sleep_time + 1e-10)
 
-    async def create_async_continuous_request_tasks(self, requester: RequesterI, server:ServerI):
+    async def run(self, requester: RequesterI, server: ServerI):
         tasks = []
         req_id = 0
         total_requests = self.get_total_requests()
+
+        pbar_sent = tqdm.tqdm(total=total_requests, desc="Requests sent", position=0)
+        pbar_done = tqdm.tqdm(total=total_requests, desc="Requests done", position=1)
+
+        async def request_task(req_id):
+            prompts = []
+            for i in range(self.load_config.prompts_per_request):
+                prompt, __ = await self.queue.get_prompt_and_idx_async()
+                self.buffer.initialize_metrics(prompt, (req_id, i), req_id, True)
+                prompts.append(prompt.prompt)
+
+            result = await requester.async_request(req_id, prompts, self.buffer, server)
+            pbar_done.update(1)  
+            return result
+
         while req_id < total_requests:
             cur_num_req = min(self.load_config.num_requester_threads, total_requests - req_id)
             for _ in range(cur_num_req):
-                prompts = []
-                for i in range(self.load_config.prompts_per_request):
-                    prompt, __ = await self.queue.get_prompt_and_idx_async()
-                    self.buffer.initialize_metrics(prompt, (req_id, i), req_id, True)
-                    prompts.append(prompt.prompt)
-                tasks.append(asyncio.create_task(requester.async_request(req_id, prompts, self.buffer, server)))
+                tasks.append(asyncio.create_task(request_task(req_id)))
                 req_id += 1
+                pbar_sent.update(1)  
+
             await asyncio.sleep(self.load_config.requester_sleep_time)
-        return tasks
+
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+        pbar_sent.close()
+        pbar_done.close()
 
 
 
 
-    
+        
 
 
