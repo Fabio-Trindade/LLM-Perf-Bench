@@ -7,7 +7,7 @@ def parse_best_batch_args(argparser: argparse.ArgumentParser, fixed_args):
     add_arg(argparser, "model", fixed_args, type=str, default="")
     add_arg(argparser, "seed", fixed_args, type=int, default = 1234)
     add_arg(argparser, "port", fixed_args, type=str, default = "8000")
-    add_arg(argparser, "vllm_param_to_optimize", fixed_args, type=str, default = "max-batched-tokens")
+    add_arg(argparser, "vllm_param_to_optimize", fixed_args, type=str, default = None, required = False)
     add_arg(argparser, "vllm_serve_args", fixed_args, type=str.split, default = [])
 
     
@@ -58,6 +58,10 @@ def optimize_vllm_parameter(port, model_name, seed, vllm_serve_args, vllm_param_
             cur_value = (last_valid_batch + cur_value) // 2
             print(f"Trying value {cur_value}")
             num_out_of_memory += 1
+
+    if last_valid_batch == 0:
+        raise ValueError("Something went wrong during vLLM initialization")
+        
     return last_valid_batch
 
 if __name__ == "__main__":
@@ -65,8 +69,8 @@ if __name__ == "__main__":
     parse_best_batch_args(argparser, {})
     args = argparser.parse_args()
     
-    max_num_seqs = find_best_num_parallel_batches_vllm(
-        args.port, args.model_name, args.seed, args.vllm_serve_args
+    max_num_seqs = optimize_vllm_parameter(
+        args.port, args.model_name, args.seed, args.vllm_serve_args, args.vllm_param_to_optimize
     )
 
     print(f"\n\nBest value (vLLM): {max_num_seqs}\n\n")

@@ -19,12 +19,10 @@ def run_prompt_variation_exp_by_config(config,tokenizer, prompt_generator, serve
 def run(args):
     config = args
     config_logging(config.logging)
-    config.max_out_tokens_range = (config.max_out_tokens, config.max_out_tokens)
     repeat_times = config.repeat_times
 
     logging.info(f"----------- Running Single Prompt Experiment -----------")
     
-    config.max_out_tokens_range = (config.max_out_tokens, config.max_out_tokens)
 
     prompt_sizes = config.prompt_sizes
     prompt_generator = PromptGeneratorBase()

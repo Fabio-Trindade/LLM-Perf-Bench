@@ -9,7 +9,7 @@ class SynDatasetGenerator(DatasetGenI):
     def __init__(self,  config):
         super().__init__(config)
         input_range_values = config.prompt_size_range 
-        max_out_token_range_values = config.max_out_tokens_range
+        max_out_token_range_values = config.decode_size_range
         seed = config.seed
         self.inp_range = range(input_range_values[0], input_range_values[1] + 1)
         self.max_out_size_range = range(max_out_token_range_values[0], max_out_token_range_values[1] + 1)

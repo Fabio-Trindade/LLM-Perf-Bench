@@ -33,6 +33,6 @@ class PromptGeneratorBase():
 
         
         inp_len = len(tokenizer.tokenize(prompt)) + additional_tokens
-        logging.warning("Can be removed after tests. file=prompt_generator.py, line=37")
+        # logging.warning("Can be removed after tests. file=prompt_generator.py, line=37")
         assert(inp_len  == num_input_tokens )
         return Prompt(prompt, inp_len, num_out_tokens)

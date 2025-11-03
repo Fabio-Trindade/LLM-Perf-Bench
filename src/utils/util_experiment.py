@@ -1,8 +1,11 @@
 import argparse
 import asyncio
 import json
+import multiprocessing
 import os
 from pathlib import Path
+import threading
+from src.catalogs.config_catalog import ConfigCatalog
 from src.parsers.args.cli_parser import CLIParser
 from src.registries.parser_registry import ParserRegistry
 from src.data_structures.csv_data_format import CSVDataFormat
@@ -17,55 +20,6 @@ from src.utils.util_logging import config_logging
 from src.utils.single_csv_writer import SingleCSVWriter
 from src.utils.util_assert import assert_all_decode_size_equal
 from fractions import Fraction
-
-class LoadResults:
-    def __init__(self,):
-        self.all_results = []
-        self.all_host_data = []
-        self.all_accelerator_data = []
-    
-    def add_data(self, results, host_data, acc_data):
-        self.all_results.append(results)
-        self.all_host_data.append(host_data)
-        self.all_accelerator_data.append(acc_data)
-
-    def get_all(self):
-        return self.all_results, self.all_host_data, self.all_accelerator_data
-
-async def run_single_async_workload(config, tokenizer, prompt_generator, server, requester, dataset_gen):
-    dataset_gen: DatasetGenI = type(dataset_gen)(config)
-        
-    prompts = dataset_gen.gen_dataset(tokenizer, prompt_generator)
-    
-    launcher = WorkloadLauncher(
-        config, server, requester, prompts
-    )
-
-    result = await launcher.async_run()
-    
-    host_data = launcher.get_host_data()
-    acc_data = launcher.get_accelerator_data()
-    return result, host_data, acc_data
-
-async def run_single_async_workload_with_req_context_manager(config, tokenizer, prompt_generator, server, requester, dataset_gen):
-    async with requester:
-        return await run_single_async_workload(config, tokenizer, prompt_generator, server, requester, dataset_gen)
-
-def run_workload_loop(config, tokenizer, prompt_generator, server, requester, dataset_gen, loop_values = [None], var_to_set = None):
-    results = LoadResults()
-    all_results = []
-    workload_runner = run_single_async_workload_with_req_context_manager if hasattr(requester, "__aenter__") else run_single_async_workload
-    for value in loop_values:
-        if var_to_set is not None:
-            setattr(config, var_to_set, value)
-        all_results = asyncio.run(
-            workload_runner(
-                config,tokenizer, prompt_generator, server, requester, dataset_gen
-            )
-        )
-        results.add_data(*all_results)
-    return results
-
 
     
 def get_components_from_config(config):
@@ -91,14 +45,15 @@ def write_markdown(lines,config):
     print(f"✅ Markdown report saved to: {markdown_path}")
 
 def write_config(config):
-    experiment_key = config.model if config.experiment_key is None else config.experiment_key 
-    output_dir = config.path_to_save_results + experiment_key
+    output_dir = config.path_to_save_results
     filename = "config.json"
     os.makedirs(output_dir, exist_ok=True)
     config_path = Path(output_dir) / filename
     json_data = {var_name: getattr(config, var_name) for var_name in vars(config)}
-    if "api_key" in json_data:
-        del json_data["api_key"]  
+    for value in ConfigCatalog._sensitive_values:
+        if value in json_data:
+            del json_data[value]
+    assert(ConfigCatalog._openai_config.api_key.name not in json_data)  
     with open(config_path, "w") as f:
         f.write(json.dumps(json_data))
 
@@ -108,21 +63,19 @@ def initialize_writer(config):
     output_dir = Path(config.path_to_csv_filename).parent
     os.makedirs(output_dir, exist_ok=True)
     csv_path = Path(config.path_to_csv_filename) 
-
-    SingleCSVWriter.initialize(CSVDataFormat(None,None,None,None), csv_path)
+    SingleCSVWriter.initialize(CSVDataFormat(None,None,None,None, None, None), csv_path)
+    
 def write_results(config, results):
-    num_requesters = config.num_requesters if hasattr(config, "num_requesters") else None  
-    requester_sleep_times = config.requester_sleep_times if hasattr(config, "requester_sleep_times") else None  
+    request_rates_per_requester = config.request_rates_per_requester if hasattr(config, "request_rates_per_requester") else None  
+    request_rate_per_requester_list = config.request_rate_per_requester_list if hasattr(config, "request_rate_per_requester_list") else None  
     for i, result in enumerate(results):
-        if num_requesters:
-            req_per_sec = num_requesters[i]
-        elif requester_sleep_times:
-            req_per_sec = config.num_requester_threads / requester_sleep_times[i]
-        else:
-            req_per_sec = config.num_requester_threads / config.requester_sleep_time
-            
+        if request_rates_per_requester:
+            req_per_sec = request_rates_per_requester[i]
+        elif request_rate_per_requester_list:
+            req_per_sec = request_rate_per_requester_list[i]
+        req_per_sec *= config.concurrent_requesters
         for prompt in result.get_all_prompts():
-            csv_data = CSVDataFormat(config.experiment_key,config.model, req_per_sec, prompt)
+            csv_data = CSVDataFormat(config.experiment_group, config.experiment_key,config.model, config.model_name_alias, req_per_sec, prompt)
             SingleCSVWriter.write(csv_data)
 
 def write_csv_from_results(results, config):

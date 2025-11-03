@@ -11,6 +11,7 @@ def parse_args():
     parser.add_argument("--csv_path", required=True, help="Path to input CSV file")
     parser.add_argument("--output_path", required=True, help="Path to save results (directory)")
     parser.add_argument("--experiments", nargs="+", required=True, help="List of experiments (key) to compare")
+    parser.add_argument("--experiment_is_group", action="store_true")
     parser.add_argument("--type", choices=["single_prompt", "load"], required=True)
     parser.add_argument("--e2e_goal", type=float, default=None, help="Goal threshold for End-to-End latency in seconds")
     return parser.parse_args()
@@ -34,11 +35,11 @@ def load_data(csv_path):
 def aggregate_metrics(df):
     grouped = []
     
-    for (key, prompt_size, model_name), group in df.groupby(["key", "prompt_size", "model_name"]):
+    for (key, prompt_size, model_alias), group in df.groupby(["experiment_key", "prompt_size", "model_alias"]):
         agg = {}
-        agg["key"] = key
+        agg["experiment_key"] = key
         agg["prompt_size"] = prompt_size
-        agg["model_name"] = model_name
+        agg["model_alias"] = model_alias
         agg["num_decoded_tokens"] = group["num_decoded_tokens"].mean()
         agg["e2e_latency"] = group["e2e_latency"].mean()
         agg["ttft"] = group["ttft"].mean()
@@ -48,10 +49,9 @@ def aggregate_metrics(df):
         tbt_lists = group["tbt_times"].tolist()
 
         if len(tbt_lists) > 0:
-            tbt_array = np.array(tbt_lists)  # shape (n_runs, sequence_len)
+            tbt_array = np.array(tbt_lists)
             mean_tbt_curve = np.nanmean(tbt_array, axis=0)
 
-            # --> aqui calculamos valores únicos sobre a curva média:
             median_tbt_value = np.nanmedian(mean_tbt_curve)
             p99_tbt_value = np.nanpercentile(mean_tbt_curve, 99)
 
@@ -104,9 +104,9 @@ def generate_single_prompt_plots(df, output_dir, experiments):
     for metric, title in metrics:
         plt.figure(figsize=(8,5))
         for exp in experiments:
-            subset = df[df["key"] == exp]
-            for model in subset["model_name"].unique():
-                model_data = subset[subset["model_name"] == model]
+            subset = df[df["experiment_key"] == exp]
+            for model in subset["model_alias"].unique():
+                model_data = subset[subset["model_alias"] == model]
                 x = model_data["prompt_size"]
                 y = model_data[metric]
                 plt.plot(x, y, label=f"{exp} - {model}", marker='o')
@@ -122,56 +122,131 @@ def generate_single_prompt_plots(df, output_dir, experiments):
 
     return plots
 
-def generate_latency_vs_tok_per_sec_plot(df, output_dir, experiments, column, percentil, xlabel, ylabel, title, image_name, y_is_list):
-    plt.figure(figsize=(8,5))
-    for exp in experiments:
-        subset = df[df["key"] == exp]
-        if subset.empty:
-            raise ValueError(f"No data found for experiment '{exp}'")
+def compute_pareto_frontier(points):
+    if len(points) == 0:
+        return []
+    
+    points = np.array(points)
+    sorted_indices = np.argsort(points[:, 0])
+    pareto_indices = []
+    min_y = float('inf')
+    
+    for idx in sorted_indices:
+        if points[idx, 1] < min_y:
+            min_y = points[idx, 1]
+            pareto_indices.append(idx)
+    
+    return pareto_indices
 
-        models = subset["model_name"].unique()
-        if len(models) != 1:
-            raise ValueError(f"Expected exactly one model for experiment {exp}, but found {models}")
-        model = models[0]
 
-        x_vals = []
-        y_vals = []
-        for req_per_sec in sorted(subset["req_per_sec"].unique()):
-            group = subset[subset["req_per_sec"] == req_per_sec]
-            if group.empty:
+
+def generate_latency_vs_req_per_sec_plots(df, output_dir, experiments):
+
+    plots = []
+    
+    columns = ["e2e_latency", "e2e_latency", "ttft", "ttft", "tbt_times", "tbt_times"]
+    percentiles = [50, 99, 50, 99, 50, 99]
+    
+    titles = [
+        "End-to-End Latency Median (s)",
+        "End-to-End Latency P99 (s)",
+        "Time To First Token Median (s)",
+        "Time To First Token P99 (s)",
+        "Time Between Tokens Median (s)",
+        "Time Between Tokens P99 (s)"
+    ]
+    
+    y_labels = [
+        "End-to-End Latency Median (s)",
+        "End-to-End Latency P99 (s)",
+        "Time To First Token Median (s)",
+        "Time To First Token P99 (s)",
+        "Time Between Tokens Median (s)",
+        "Time Between Tokens P99 (s)"
+    ]
+    
+    image_names = [
+        "e2e_median_latency_vs_req_per_sec.png",
+        "e2e_p99_latency_vs_req_per_sec.png",
+        "ttft_median_vs_req_per_sec.png",
+        "ttft_p99_vs_req_per_sec.png",
+        "tbt_median_vs_req_per_sec.png",
+        "tbt_p99_vs_req_per_sec.png"
+    ]
+    
+    y_is_list_flags = [False, False, False, False, True, True]
+    
+    colors = ['blue', 'orange', 'green', 'red', 'purple', 'brown', 'pink', 'gray']
+    
+    for i, (column, percentile, title, y_label, image_name, is_list) in enumerate(zip(
+        columns, percentiles, titles, y_labels, image_names, y_is_list_flags
+    )):
+        plt.figure(figsize=(10, 6))
+        
+        for exp_idx, exp in enumerate(experiments):
+            subset = df[df["experiment_key"] == exp]
+            if subset.empty:
+                print(f"Warning: No data found for experiment '{exp}'")
                 continue
-
-            total_tokens  = group["prompt_size"].sum() + group["num_decoded_tokens"].sum()
-            total_time = group["final_time"].max() - group["initial_time"].min()
-            throughput = total_tokens / total_time
-            if not y_is_list:
-                y_value = np.percentile(group[column], percentil)
-            else:
-                tbt_times = group["tbt_times"].explode()
-                y_value = np.percentile(tbt_times, percentil) if not tbt_times.empty else np.nan
             
-            x_vals.append(throughput)
-            y_vals.append(y_value)
+            models = subset["model_alias"].unique()
+            if len(models) != 1:
+                print(f"Warning: Expected exactly one model for experiment {exp}, but found {models}")
+                model = models[0]
+            else:
+                model = models[0]
+            
+            x_vals = []
+            y_vals = []
+            x_label = ""
+            for req_per_sec in sorted(subset["req_per_sec"].unique()):
+                group = subset[subset["req_per_sec"] == req_per_sec]
+                if group.empty:
+                    continue
+                min_time = group["initial_time"].min()
+                max_time = group["final_time"].max()
+                total_time = max_time - min_time
+                throughput = len(group)/total_time
+                if not is_list:
+                    y_value = np.percentile(group[column], percentile)
+                    x_vals.append(req_per_sec)
+                    x_label = "Throughput (req/sec)"
+                else:
+                    tbt_times = group["tbt_times"].explode()
+                    y_value = np.percentile(tbt_times, percentile) if not tbt_times.empty else np.nan
+                    x_vals.append(req_per_sec)
+                    x_label = "Request/s"
 
-        if len(x_vals) > 0:
-            plt.plot(x_vals, y_vals, marker='o', label=f"{exp} - {model}")
-
-    plt.xlabel(xlabel)
-    plt.ylabel(ylabel)
-    plt.title(title)
-    plt.legend()
-    filename = os.path.join(output_dir, image_name)
-    plt.savefig(filename, bbox_inches='tight')
-    plt.close()
-    return filename
+                
+                y_vals.append(y_value)
+            
+            if len(x_vals) > 0:
+                color = colors[exp_idx % len(colors)]
+                
+                # Plot dos pontos
+                plt.plot(x_vals, y_vals, marker='o', color=color, 
+                        label=f"{exp} - {model}", linestyle='-')
+        
+        plt.xlabel(x_label)
+        plt.ylabel(y_label)
+        plt.title(f"{title} vs {x_label}")
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.grid(True, alpha=0.3)
+        
+        filename = os.path.join(output_dir, image_name)
+        plt.savefig(filename, bbox_inches='tight')
+        plt.close()
+        plots.append(filename)
+    
+    return plots
 
 def generate_table_markdown(df, experiments):
     rows = []
     for exp in experiments:
-        subset = df[df["key"] == exp]
+        subset = df[df["experiment_key"] == exp]
         for _, row in subset.iterrows():
             rows.append([
-                row["model_name"],
+                row["model_alias"],
                 int(row["prompt_size"]),
                 int(row["num_decoded_tokens"]),
                 round(row["e2e_latency"], 4),
@@ -188,7 +263,8 @@ def generate_table_markdown(df, experiments):
         "Model", "Prompt Size", "Decode Size", 
         "E2E (s)", "Total Throughput (tok/s)", "TTFT (s)", 
         "Prefill Throughput (tok/s)", "Decode Time (s)", 
-        "Decode Throughput (tok/s)", "TBT median (s)", "TBT 99th percentile (s)"    ]
+        "Decode Throughput (tok/s)", "TBT median (s)", "TBT 99th percentile (s)"
+    ]
     
     rows_sorted = sorted(rows, key=lambda x: (x[0], x[1]))
     
@@ -226,7 +302,6 @@ def generate_markdown_report(plots, table_md, goal_tables, output_path, report_t
             md += f"### {goal_title}\n\n"
             md += table + "\n\n"
 
-
     report_file = os.path.join(output_path, "report.md")
     with open(report_file, "w") as f:
         f.write(md)
@@ -235,7 +310,6 @@ def gen_single_prompt_experiment_report(args, df):
     agg_df = aggregate_metrics(df)
     plots = generate_single_prompt_plots(agg_df, args.output_path, args.experiments)
     table_md = generate_table_markdown(agg_df, args.experiments)
-
     return plots, table_md, None
 
 def calculate_real_time(initial_times, final_times):
@@ -259,27 +333,20 @@ def calculate_real_time(initial_times, final_times):
 
 def plot_throughputs(df, args):
     plots = []
-
-    def compute_throughput_for_experiment(experiment_df):
+    colors = ['blue', 'orange', 'green', 'red', 'purple', 'brown', 'pink', 'gray']
+    
+    # Dicionários para armazenar dados de todos os experimentos
+    all_total_data = {}
+    all_prefill_data = {}
+    all_decode_data = {}
+    
+    for exp_idx, experiment in enumerate(args.experiments):
+        experiment_df = df[df["experiment_key"] == experiment]
+        
         x_total, y_total = [], []
         x_prefill, y_prefill = [], []
         x_decode, y_decode = [], []
-        columns = [
-                "req_per_sec",
-                "total_decoded_tokens",
-                "total_prefill_tokens",
-                "total_time(max-min)",
-                "total_time(real_time)",
-                "throughput_total",
-                "total_ttft_time",
-                "throughput_prefill",
-                "total_decode_time",
-                "throughput_decode"
-        ]
-        # header = "  ".join(f"{col:<22}" for col in columns)
-
-        # print(header)
-
+        
         for req_per_sec in sorted(experiment_df["req_per_sec"].unique()):
             filtered_df = experiment_df[experiment_df["req_per_sec"] == req_per_sec]
             if filtered_df.empty:
@@ -296,125 +363,102 @@ def plot_throughputs(df, args):
             total_ttft_time = calculate_real_time(initial_times, final_ttft_times)
             total_decode_time = calculate_real_time(final_ttft_times, decode_end_times)
             total_time = filtered_df["final_time"].max() - filtered_df["initial_time"].min()
-            total_time2 = calculate_real_time(initial_times, decode_end_times)
+            
             throughput_total = total_tokens / total_time if total_time > 0 else 0.0
             throughput_prefill = total_prompt_tokens / total_ttft_time if total_ttft_time > 0 else 0.0
             throughput_decode = total_decode_tokens / total_decode_time if total_decode_time > 0 else 0.0
-            # print(filtered_df["final_time"].max(), filtered_df["initial_time"].min())
-            # print(f"{req_per_sec:<22} {total_decode_tokens:<22} {total_prompt_tokens:<22} "
-            #       f"{total_time:<22} {total_time2:<22} {throughput_total:<22} "
-            #       f"{total_ttft_time:<22} {throughput_prefill:<22} {total_decode_time:<22} {throughput_decode:<22}")
-            x_val = req_per_sec
-            x_total.append(x_val)
+            
+            x_total.append(req_per_sec)
             y_total.append(throughput_total)
-            x_prefill.append(x_val)
+            x_prefill.append(req_per_sec)
             y_prefill.append(throughput_prefill)
-            x_decode.append(x_val)
+            x_decode.append(req_per_sec)
             y_decode.append(throughput_decode)
-
-        return (x_total, y_total), (x_prefill, y_prefill), (x_decode, y_decode)
-
-    def save_plot(x, y, title, ylabel, filename, prompt_size, decode_size, experiment, color=None, marker='o'):
-        if not x:
-            return
-        plt.figure(figsize=(8, 5))
-        plt.plot(x, y, marker=marker, color=color, label=experiment)
-
-        # Ajuste automático da posição do texto da anotação
-        if y:
+        
+        all_total_data[experiment] = (x_total, y_total, exp_idx)
+        all_prefill_data[experiment] = (x_prefill, y_prefill, exp_idx)
+        all_decode_data[experiment] = (x_decode, y_decode, exp_idx)
+    
+    # Plot Total Throughput
+    plt.figure(figsize=(10, 6))
+    for experiment, (x, y, exp_idx) in all_total_data.items():
+        if x:
+            color = colors[exp_idx % len(colors)]
+            plt.plot(x, y, marker='o', color=color, label=experiment)
+            
             max_idx = y.index(max(y))
             max_x = x[max_idx]
             max_y = y[max_idx]
-
-            plt.scatter([max_x], [max_y], color='red', zorder=5)
-
-            y_offset = 25 if max_y <= max(y) * 0.9 else -40  
-
-            plt.annotate(
-                f"Max\n{max_y:.2f} tok/s\n@ {max_x} req/s",
-                (max_x, max_y),
-                textcoords="offset points",
-                xytext=(0, y_offset),
-                ha='center',
-                bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="black", lw=1),
-                fontsize=9,
-                color='black'
-            )
-
-        plt.xlabel("Requests per second")
-        plt.ylabel(ylabel)
-        plt.title(f"{title} vs requests per sec with {int(prompt_size)}/{decode_size} prompt size/max decode size per request")
-        plt.legend()
-        output_path = os.path.join(args.output_path, filename)
-        plt.savefig(output_path, bbox_inches='tight')
-        plt.close()
-        plots.append(output_path)
-
-    for experiment in args.experiments:
-        experiment_df = df[df["key"] == experiment]
-
-        (x_total, y_total), (x_prefill, y_prefill), (x_decode, y_decode) = compute_throughput_for_experiment(experiment_df)
-
-        prompt_size = experiment_df["prompt_size"].mean()
-        decode_size = experiment_df["num_decoded_tokens"].max()
-
-        save_plot(x_total, y_total, "Total Throughput", "Throughput (tokens/s)", f"{experiment}_total_throughput.png", prompt_size, decode_size, experiment)
-        save_plot(x_prefill, y_prefill, "Prefill Throughput", "Prefill Throughput (tokens/s)", f"{experiment}_prefill_throughput.png", prompt_size, decode_size, experiment, color="orange", marker="s")
-        save_plot(x_decode, y_decode, "Decode Throughput", "Decode Throughput (tokens/s)", f"{experiment}_decode_throughput.png", prompt_size, decode_size, experiment, color="green", marker="^")
-
+            plt.scatter([max_x], [max_y], color=color, s=100, zorder=5, edgecolors='black', linewidths=2)
+    
+    plt.xlabel("Requests per Second")
+    plt.ylabel("Throughput (tokens/s)")
+    plt.title("Total Throughput vs Requests per Second")
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    output_path = os.path.join(args.output_path, "total_throughput.png")
+    plt.savefig(output_path, bbox_inches='tight')
+    plt.close()
+    plots.append(output_path)
+    
+    # Plot Prefill Throughput
+    plt.figure(figsize=(10, 6))
+    for experiment, (x, y, exp_idx) in all_prefill_data.items():
+        if x:
+            color = colors[exp_idx % len(colors)]
+            plt.plot(x, y, marker='s', color=color, label=experiment)
+            
+            max_idx = y.index(max(y))
+            max_x = x[max_idx]
+            max_y = y[max_idx]
+            plt.scatter([max_x], [max_y], color=color, s=100, zorder=5, edgecolors='black', linewidths=2)
+    
+    plt.xlabel("Requests per Second")
+    plt.ylabel("Prefill Throughput (tokens/s)")
+    plt.title("Prefill Throughput vs Requests per Second")
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    output_path = os.path.join(args.output_path, "prefill_throughput.png")
+    plt.savefig(output_path, bbox_inches='tight')
+    plt.close()
+    plots.append(output_path)
+    
+    # Plot Decode Throughput
+    plt.figure(figsize=(10, 6))
+    for experiment, (x, y, exp_idx) in all_decode_data.items():
+        if x:
+            color = colors[exp_idx % len(colors)]
+            plt.plot(x, y, marker='^', color=color, label=experiment)
+            
+            max_idx = y.index(max(y))
+            max_x = x[max_idx]
+            max_y = y[max_idx]
+            plt.scatter([max_x], [max_y], color=color, s=100, zorder=5, edgecolors='black', linewidths=2)
+    
+    plt.xlabel("Requests per Second")
+    plt.ylabel("Decode Throughput (tokens/s)")
+    plt.title("Decode Throughput vs Requests per Second")
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    output_path = os.path.join(args.output_path, "decode_throughput.png")
+    plt.savefig(output_path, bbox_inches='tight')
+    plt.close()
+    plots.append(output_path)
+    
     return plots
-
-
 
 def gen_load_experiment_report(args, df):
     plots = []
-    columns = ["e2e_latency","e2e_latency", "ttft", "ttft", "tbt_times", "tbt_times"]
-    percetiles = [50, 99, 50, 99, 50, 99]
-
-    plt.figure(figsize=(8, 5))
-    plots = plot_throughputs(df, args)
-
-    titles = [
-        "End-to-End Latency Median(s)",
-        "End-to-End Latency P99(s)",
-        "Time To First Token Median (s)",
-        "Time To First Token P99 (s)",
-        "Time Between Tokens Median (s)",
-        "Time Between Tokens P99 (s)"
-    ]
-    prompt_size = df["prompt_size"].mean()
-    decode_size = df["num_decoded_tokens"].mean()
-    titles = [title + f" vs Throughput (tokens/s) with {prompt_size}/{round(decode_size, 2)} prompt size/mean decode size" for title in titles]
-    x_label = "Throughput (tokens/s)"
-
-    image_names = [
-        "e2e_median_latency_vs_tok_per_sec.png",
-        "e2e_latency_vs_tok_per_sec.png",
-        "ttft_median_vs_tok_per_sec.png",
-        "ttft_p99_vs_tok_per_sec.png",
-        "tbt_median_vs_tok_per_sec.png",
-        "tbt_p99_vs_tok_per_sec.png"
-    ]
-
-    y_is_list_flags = [False, False, False, False, True, True]
-
-    y_labels = [
-        "End-to-End Latency Median (s)",
-        "End-to-End Latency P99 (s)",
-        "Time To First Token Median (s)",
-        "Time To First Token P99 (s)",
-        "Time Between Tokens Median (s)",
-        "Time Between Tokens P99 (s)"
-    ]
-    for i, (column, percentil, title, image_name, is_list, y_label) in enumerate(zip(
-        columns, percetiles, titles, image_names, y_is_list_flags, y_labels
-    )):
-        plot = generate_latency_vs_tok_per_sec_plot(
-            df, args.output_path, args.experiments, column, percentil, x_label, y_label,  title, image_name, is_list
-        )
-        plots.append(plot)
-
-
+    
+    # Gerar plots de throughput
+    throughput_plots = plot_throughputs(df, args)
+    plots.extend(throughput_plots)
+    
+    # Gerar plots de latência vs req/s
+    latency_plots = generate_latency_vs_req_per_sec_plots(df, args.output_path, args.experiments)
+    plots.extend(latency_plots)
+    
+    # Gerar tabela de throughput máximo
     goal_value = args.e2e_goal
     goal_column = "e2e_goal"
     goal_name = "End-to-End Latency"
@@ -424,7 +468,7 @@ def gen_load_experiment_report(args, df):
     table_rows = []
 
     for exp in args.experiments:
-        filtered_exp_df = filtered_goal_df[filtered_goal_df["key"] == exp]
+        filtered_exp_df = filtered_goal_df[filtered_goal_df["experiment_key"] == exp]
 
         if filtered_exp_df.empty:
             table_rows.append({
@@ -444,7 +488,6 @@ def gen_load_experiment_report(args, df):
         avg_prompt_size = None
         best_req_per_sec = None
 
-
         for req_per_sec in filtered_exp_df["req_per_sec"].unique():
             df_ps = filtered_exp_df[filtered_exp_df["req_per_sec"] == req_per_sec]
             if df_ps.empty:
@@ -452,7 +495,7 @@ def gen_load_experiment_report(args, df):
 
             total_prompt_tokens = df_ps["prompt_size"].sum()
             total_decoded_tokens = df_ps["num_decoded_tokens"].sum()
-            all_req_df = df[(df["key"] == exp) & (df["req_per_sec"] == req_per_sec)]
+            all_req_df = df[(df["experiment_key"] == exp) & (df["req_per_sec"] == req_per_sec)]
 
             initial_times = all_req_df["initial_time"]
             final_ttft_times = initial_times + all_req_df["ttft"]
@@ -460,9 +503,8 @@ def gen_load_experiment_report(args, df):
 
             total_ttft_time = calculate_real_time(initial_times, final_ttft_times)
             total_decode_time = calculate_real_time(final_ttft_times, decode_end_times)
-            total_time2 = calculate_real_time(initial_times, decode_end_times)
             total_time = all_req_df["final_time"].max() - all_req_df["initial_time"].min()
-            assert(total_time2 <= total_time)
+            
             total_throughput = (total_prompt_tokens + total_decoded_tokens) / total_time if total_time > 0 else 0.0
             prefill_throughput = total_prompt_tokens / total_ttft_time if total_ttft_time > 0 else 0.0
             decode_throughput = total_decoded_tokens / total_decode_time if total_decode_time > 0 else 0.0
@@ -471,9 +513,9 @@ def gen_load_experiment_report(args, df):
                 max_total_throughput = total_throughput
                 best_prefill_thp = prefill_throughput
                 best_decode_thp = decode_throughput
-                best_model = df_ps["model_name"].iloc[0] if "model_name" in df_ps.columns else "Unknown"
+                best_model = df_ps["model_alias"].iloc[0] if "model_alias" in df_ps.columns else "Unknown"
                 decoded_tokens = df_ps["num_decoded_tokens"].mean()
-                avg_prompt_size= df_ps["prompt_size"].mean()
+                avg_prompt_size = df_ps["prompt_size"].mean()
                 best_req_per_sec = req_per_sec
 
         table_rows.append({
@@ -485,26 +527,33 @@ def gen_load_experiment_report(args, df):
             "Avg Prompt size": round(avg_prompt_size, 2),  
             "Avg Decoded Tokens per prompt": round(decoded_tokens, 2) if decoded_tokens else "N/A",
             "Req/s": best_req_per_sec if best_req_per_sec else "N/A",
-            "Best batch (tok/s)": best_req_per_sec*(avg_prompt_size + decoded_tokens) if best_req_per_sec else "N/A"
+            "Best batch (tok/s)": round(best_req_per_sec * (avg_prompt_size), 2) if best_req_per_sec else "N/A"
         })
 
-    # Monta a tabela em Markdown
     table_df = pd.DataFrame(table_rows)
 
     table_md = f"## Max Throughput for {goal_name} < {goal_value}s\n\n"
     table_md += table_df.to_markdown(index=False)
     table_md += "\n\n"
 
-        # goal_tables.append("",table_md)
-
     return plots, table_md, None
-
 
 def main():
     args = parse_args()
-    os.makedirs(args.output_path, exist_ok=True)
+    
+    for experiment in args.experiments:
+        os.makedirs(os.path.join(args.output_path, experiment), exist_ok=True)
+
     df = load_data(args.csv_path)
-    df = df[df["key"].isin(args.experiments)]
+
+    if args.experiment_is_group:
+        df = df[df["experiment_group"].isin(args.experiments)]
+    else:
+        df = df[df["experiment_key"].isin(args.experiments)]
+
+    if df.empty:
+        print("Warning: No data found for the selected experiments/groups.")
+        return
 
     if args.type == "single_prompt":
         print("Generating report for single prompt experiments...")
@@ -517,6 +566,7 @@ def main():
 
     generate_markdown_report(plots, table_md, table_md_goals, args.output_path, report_type)
     print(f"Report generated at {os.path.join(args.output_path, 'report.md')}")
+
 
 if __name__ == "__main__":
     main()

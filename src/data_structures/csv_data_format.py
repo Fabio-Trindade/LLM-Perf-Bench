@@ -2,14 +2,17 @@ from src.data_structures.prompt_performance_metrics import PromptPerformanceMetr
 import json
 
 class CSVDataFormat:
-    def __init__(self, exp_key, 
+    def __init__(self, exp_group, exp_key, 
                  model_name,
+                 model_alias,
                  req_per_sec,
                  prompt_metrics: PromptPerformanceMetrics
                  
                  ):
-        self.key = exp_key
-        self.model_name = model_name
+        self.experiment_group = exp_group
+        self.experiment_key = exp_key
+        self.model = model_name
+        self.model_alias = model_name if model_alias is None else model_alias
         self.req_per_sec = req_per_sec
         var_names = ["total_throughput",
                      "prefill_throughput",
