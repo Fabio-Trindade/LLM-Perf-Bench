@@ -49,13 +49,12 @@ def find_max_request_rate(config):
         cur_req_rate = increment_value * cur_req_rate
 
     server.shutdown()
-    return cur_req_rate/increment_value, last_thp
+    return cur_req_rate, last_thp
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     fixed_args = {
-        "num_prompts": 1,
-        "num_requesters": [None]
+      
     }
 
     args = get_args_from_parser(parser, fixed_args, add_load_exp_args, parse_best_req_rate_args)
