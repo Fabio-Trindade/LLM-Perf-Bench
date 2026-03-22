@@ -1,6 +1,5 @@
 import argparse
 import math
-import multiprocessing
 import os
 import json
 import time
@@ -49,25 +48,26 @@ def run_step(state, key, state_filepath, func):
     save_exp_state(state, state_filepath)
     return value
 
-if __name__ == "__main__":
-    # multiprocessing.set_start_method("spawn", force=True)
+def run_vllm_experiment(cli_args=None):
     init_time = time.time()
-    parser_verification = argparse.ArgumentParser()
-    parser_verification.add_argument('--experiment_key', type=str, required=True)
-    parser_verification.add_argument('--path_to_save_results', type=str, required=True)
-    verification_args, _ = parser_verification.parse_known_args()
 
-    state_filepath = os.path.join(os.path.dirname(verification_args.path_to_save_results), "state.json")
+    if cli_args is None:
+        parser_verification = argparse.ArgumentParser()
+        parser_verification.add_argument('--experiment_key', type=str, required=True)
+        parser_verification.add_argument('--path_to_save_results', type=str, required=True)
+        cli_args, _ = parser_verification.parse_known_args()
+
+    state_filepath = os.path.join(os.path.dirname(cli_args.path_to_save_results), "state.json")
     exp_state = load_exp_state(state_filepath)
 
     if exp_state.get("finished") is True:
-        print(f"Experiment with key {verification_args.experiment_key} already completed. Exiting.", flush=True)
-        exit(0)
+        print(f"Experiment with key {cli_args.experiment_key} already completed. Exiting.", flush=True)
+        return exp_state
 
     parser = argparse.ArgumentParser()
     parse_best_batch_args(parser, {})
-    args, _ = parser.parse_known_args()
-    vllm_param_to_optimize = args.vllm_param_to_optimize
+    args, _ = parser.parse_known_args(namespace=cli_args)
+    vllm_param_to_optimize = getattr(args, "vllm_param_to_optimize", None)
 
     def optimize_vllm():
         if vllm_param_to_optimize:
@@ -118,7 +118,7 @@ if __name__ == "__main__":
             best_request_rate, max_thp_req = find_max_request_rate(config=args)
             print(f"[RESULT] Max request rate: {best_request_rate}, throughput: {max_thp_req:.2f} tokens/s\n", flush=True)
             return best_request_rate
-        
+
         args.request_rate_per_requester = run_step(exp_state, "best_request_rate", state_filepath, find_best_num_request_rate_func)
 
         print(f"\n=========== Running intervaled load experiment using max request rate {args.request_rate_per_requester} tok/s ===========\n", flush=True)
@@ -140,9 +140,20 @@ if __name__ == "__main__":
         server.shutdown()
         final_time = time.time()
         print("Server shut down. Experiment completed successfully.\nElapsed time (s): ", (final_time - init_time), flush=True)
+
+        return {
+            "optimized_param": optimized_vllm_param,
+            "max_request_rate": args.request_rate_per_requester,
+            "all_results": all_results,
+            "exp_state": exp_state
+        }
     except KeyboardInterrupt:
         server.shutdown()
         print("Experiment interrupted. Server shut down.", flush=True)
+        return exp_state
     except Exception as e:
         server.shutdown()
         raise e
+
+if __name__ == "__main__":
+    run_vllm_experiment()
