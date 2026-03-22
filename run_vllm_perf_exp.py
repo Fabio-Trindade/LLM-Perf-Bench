@@ -3,6 +3,7 @@ import math
 import multiprocessing
 import os
 import json
+import time
 from src.load_results import LoadResults
 from src.prompt_generator.prompt_generator import PromptGeneratorBase
 from src.components.servers.vllm_server import vLLMServer
@@ -36,7 +37,7 @@ def load_exp_state(state_filepath):
     os.makedirs(os.path.dirname(state_filepath), exist_ok=True)
     return {
         "finished": None,
-        "best_request_rate": None,
+        "best_request_rate": None
     }
 
 def run_step(state, key, state_filepath, func):
@@ -50,7 +51,7 @@ def run_step(state, key, state_filepath, func):
 
 if __name__ == "__main__":
     # multiprocessing.set_start_method("spawn", force=True)
-
+    init_time = time.time()
     parser_verification = argparse.ArgumentParser()
     parser_verification.add_argument('--experiment_key', type=str, required=True)
     parser_verification.add_argument('--path_to_save_results', type=str, required=True)
@@ -137,8 +138,8 @@ if __name__ == "__main__":
         exp_state["finished"] = True
         save_exp_state(exp_state, state_filepath)
         server.shutdown()
-        print("Server shut down. Experiment completed successfully.\n", flush=True)
-
+        final_time = time.time()
+        print("Server shut down. Experiment completed successfully.\nElapsed time (s): ", (final_time - init_time), flush=True)
     except KeyboardInterrupt:
         server.shutdown()
         print("Experiment interrupted. Server shut down.", flush=True)

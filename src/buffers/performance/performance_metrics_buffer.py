@@ -1,7 +1,6 @@
 from copy import deepcopy
 from src.data_structures.prompt_performance_metrics import PromptPerformanceMetrics
 from typing import Any
-import threading
 
 class PerformanceMetricsBuffer():
     def __init__(self):
