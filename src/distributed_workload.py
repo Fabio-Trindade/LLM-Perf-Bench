@@ -9,7 +9,7 @@ from src.data_structures.perf_results import PerfResults
 from src.components.requesters.requester_interface import RequesterI
 from src.workload_launcher import WorkloadLauncher
 import time
-
+import traceback
 
 class DistributedWorkload:
     def __init__(self, config, requester: RequesterI, prompts: list):
@@ -108,7 +108,7 @@ class DistributedWorkload:
             return_dict[proc_idx] = (perf_agg, host_all, acc_all)
 
         except Exception as e:
-            return_dict[proc_idx] = e
+             return_dict[proc_idx] = traceback.format_exc()
         finally:
             end_time = time.time()
             # print(f"[Process {proc_idx} - {process_name}] Finished at {end_time:.2f}s (Duration: {end_time-start_time:.2f}s)")

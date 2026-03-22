@@ -9,7 +9,7 @@ from src.prompt_sampler.random_prompt_sampler import RandomPromptSampler
 from src.data_structures.perf_results import PerfResults
 from src.load_generator.load_generator import LoadGenerator
 from src.components.requesters.requester_interface import RequesterI
-
+import traceback
 class WorkloadLauncher():
     def __init__(self, config, requester: RequesterI, prompts: list[Prompt]):
         self.load_generator: LoadGenerator = LoadGenerator(AsyncQueue(), config)

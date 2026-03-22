@@ -6,8 +6,12 @@ import os
 import json
 from tabulate import tabulate
 
-EXPERIMENT_COLORS = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f']
-
+EXPERIMENT_COLORS = [
+    '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728',
+    '#9467bd', '#8c564b', '#e377c2', '#7f7f7f',
+    '#17becf', '#bcbd22', '#aec7e8', '#ffbb78',
+    '#98df8a', '#ff9896', '#c5b0d5', '#c49c94'
+]
 def parse_args():
     parser = argparse.ArgumentParser(description="Generate Markdown report from model CSV results.")
     def parse_tuple_list(string):
@@ -171,26 +175,68 @@ def generate_single_prompt_plots(df, output_dir, experiments):
     ]
 
     plots = []
+
     for metric, title in metrics:
-        plt.figure(figsize=(12,5))
+        # ---- FIGURA COM DOIS EIXOS (TOPO + PLOT) ----
+        fig = plt.figure(figsize=(10, 5))
+        gs = fig.add_gridspec(2, 1, height_ratios=[1.2, 4.0], hspace=0.05)
+
+        ax_top = fig.add_subplot(gs[0])
+        ax = fig.add_subplot(gs[1])
+
+        # ---- EIXO SUPERIOR: LEGENDA ----
+        ax_top.axis("off")  # Sem eixos
+        ax_top.set_title(
+            title,
+            fontsize=14,
+            fontweight="bold",
+            pad=5
+        )
+
+        # ---- EIXO INFERIOR: PLOT ----
         for exp in experiments:
             subset = df[df["experiment_key"] == exp]
+
             for model in subset["model_alias"].unique():
                 model_data = subset[subset["model_alias"] == model]
                 x = model_data["prompt_size"]
                 y = model_data[metric]
-                plt.plot(x, y, label=f"{exp} - {model}", marker='o')
 
-        plt.xlabel("Prompt Size (tokens)")
-        plt.ylabel(title)
-        plt.title(title)
-        plt.legend()
+                ax.plot(
+                    x,
+                    y,
+                    marker="o",
+                    label=f"{model}"
+                )
+
+        ax.set_xlabel("Prompt Size (tokens)", fontsize=12)
+        ax.set_ylabel(title, fontsize=12)
+        ax.grid(True, linestyle="--", alpha=0.4)
+
+        # ---- LEGENDA NO EIXO SUPERIOR ----
+        handles, labels = ax.get_legend_handles_labels()
+        by_label = dict(sorted(zip(labels, handles), key=lambda x: x[0].lower()))
+
+        ax_top.legend(
+            by_label.values(),
+            by_label.keys(),
+            loc="upper center",       # posicione no topo e centralize horizontalmente
+            bbox_to_anchor=(0.5, 1.0), # x=0.5 centraliza horizontalmente, y=1.0 posiciona acima do eixo
+            ncol=3,
+            fontsize=12,
+            title="",
+            frameon=False,
+        )
+
+        # ---- SALVAR ----
         filename = os.path.join(output_dir, f"{metric}.png")
-        plt.savefig(filename, bbox_inches='tight')
-        plt.close()
+        fig.savefig(filename, dpi=300, bbox_inches="tight")
+        plt.close(fig)
+
         plots.append(filename)
 
     return plots
+
 
 def compute_pareto_frontier(points):
     """
@@ -235,17 +281,27 @@ def compute_max_throughput_for_experiment(experiment_df):
         max_throughput = max(max_throughput, throughput_total)
 
     return max_throughput
-def get_pareto_plot(associated_experiments, mean_acc, perf_df, output_path, experiments, filename="pareto_front.png"):
+
+def get_pareto_plot(
+    associated_experiments,
+    mean_acc,
+    perf_df,
+    output_path,
+    experiments,
+    filename="pareto_front.png"
+):
     exp_to_color = get_exp_color_map(experiments)
 
-    # Mapear experimentos de acurácia para experimentos de performance
-    acc_exp_key_to_perf_exp_key = {acc: perf for acc, perf in associated_experiments}
+    acc_exp_key_to_perf_exp_key = {
+        acc: perf for acc, perf in associated_experiments
+    }
     all_points = []
 
     for acc_key, perf_key in acc_exp_key_to_perf_exp_key.items():
         df_exp = perf_df[perf_df["experiment_key"] == perf_key]
         if df_exp.empty:
             continue
+
         max_throughput = compute_max_throughput_for_experiment(df_exp)
         acc = mean_acc.get(acc_key, np.nan)
         all_points.append((max_throughput, acc, perf_key))
@@ -255,37 +311,79 @@ def get_pareto_plot(associated_experiments, mean_acc, perf_df, output_path, expe
         return None
 
     points_array = np.array([(p[0], p[1]) for p in all_points])
-
-    # Função de Pareto: pontos não dominados
     pareto_indices = compute_pareto_frontier(points_array)
     pareto_points = [all_points[i] for i in pareto_indices]
 
-    plt.figure(figsize=(12,5))
-    unique_keys = list({p[2] for p in all_points})
+    # ---- FIGURA COM DOIS EIXOS (TOPO + PLOT) ----
+    fig = plt.figure(figsize=(10, 5))
+    gs = fig.add_gridspec(2, 1, height_ratios=[1.2, 4.0], hspace=0.05)
 
-    # Plotar todos os pontos
+    ax_top = fig.add_subplot(gs[0])
+    ax = fig.add_subplot(gs[1])
+
+    # ---- EIXO SUPERIOR: TÍTULO + LEGENDA ----
+    ax_top.axis("off")
+
+    ax_top.set_title(
+        "Pareto Frontier: Mean Accuracy vs Throughput (Tok/s)",
+        fontsize=14,
+        fontweight="bold",
+        pad=5,
+    )
+
+    # ---- EIXO INFERIOR: PLOT ----
+    unique_keys = list(dict.fromkeys(p[2] for p in all_points))
+
     for key in unique_keys:
         xs = [p[0] for p in all_points if p[2] == key]
         ys = [p[1] for p in all_points if p[2] == key]
-        color = exp_to_color.get(key, '#333333')
-        plt.scatter(xs, ys, color=color, s=100, alpha=0.7, edgecolors='black', label=key, zorder=2)
+        color = exp_to_color.get(key, "#333333")
 
-    # Linha preta conectando pontos da fronteira
+        ax.scatter(
+            xs,
+            ys,
+            color=color,
+            s=100,
+            alpha=0.7,
+            edgecolors="black",
+            label=key,
+            zorder=2,
+        )
+
     if pareto_points:
-        pareto_throughputs = [p[0] for p in pareto_points]
-        pareto_accuracies = [p[1] for p in pareto_points]
-        plt.plot(pareto_throughputs, pareto_accuracies, color="black", linestyle="-", linewidth=2.0, marker=None, zorder=3)
+        ax.plot(
+            [p[0] for p in pareto_points],
+            [p[1] for p in pareto_points],
+            color="gray",
+            linewidth=4.5,
+            alpha=0.3,
+            zorder=4,
+        )
 
-    plt.xlabel("Throughput (Tok/s)", fontsize=12)
-    plt.ylabel("Mean Accuracy", fontsize=12)
-    plt.title("Pareto Frontier: Mean Accuracy vs Throughput (Tok/s)", fontsize=14, fontweight='bold')
-    plt.grid(True, linestyle="--", alpha=0.4)
-    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), title="Modelos", fontsize=10)
-    plt.tight_layout(rect=[0, 0, 0.85, 1])
+    ax.set_xlabel("Throughput (Tok/s)", fontsize=12)
+    ax.set_ylabel("Mean Accuracy", fontsize=12)
+    ax.grid(True, linestyle="--", alpha=0.4)
 
+    # ---- LEGENDA NO EIXO SUPERIOR ----
+    handles, labels = ax.get_legend_handles_labels()
+    by_label = dict(sorted(zip(labels, handles), key=lambda x: x[0].lower()))
+
+    ax_top.legend(
+        by_label.values(),
+        by_label.keys(),
+        loc="upper center",       # posicione no topo e centralize horizontalmente
+        bbox_to_anchor=(0.5, 1.0), # x=0.5 centraliza horizontalmente, y=1.0 posiciona acima do eixo
+        ncol=3,
+        fontsize=12,
+        title="",
+        frameon=False,
+    )
+
+    # ---- SALVAR ----
     output_file = os.path.join(output_path, filename)
-    plt.savefig(output_file, bbox_inches='tight', dpi=300)
-    plt.close()
+    fig.savefig(output_file, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+
     return output_file
 
 
@@ -319,7 +417,18 @@ def generate_latency_vs_req_per_sec_plots(df, output_dir, experiments):
     for column, percentile, title, y_label, image_name, is_list in zip(
         columns, percentiles, titles, y_labels, image_names, y_is_list_flags
     ):
-        plt.figure(figsize=(12,5))
+        # ---- FIGURA COM DOIS EIXOS ----
+        fig = plt.figure(figsize=(10, 5))
+        gs = fig.add_gridspec(2, 1, height_ratios=[1.2, 4.0], hspace=0.05)
+
+        ax_top = fig.add_subplot(gs[0])
+        ax = fig.add_subplot(gs[1])
+
+        # ---- EIXO SUPERIOR: TÍTULO + LEGENDA ----
+        ax_top.axis("off")
+        ax_top.set_title(title, fontsize=14, fontweight="bold", pad=5)
+
+        # ---- EIXO INFERIOR: PLOT ----
         for exp in experiments:
             subset = df[df["experiment_key"] == exp]
             if subset.empty:
@@ -344,21 +453,42 @@ def generate_latency_vs_req_per_sec_plots(df, output_dir, experiments):
                 y_vals.append(y_value)
             
             if x_vals:
-                color = exp_to_color[exp]
-                plt.plot(x_vals, y_vals, marker='o', linestyle='-', color=color, label=f"{exp} - {model}")
+                color = exp_to_color.get(exp, "#333333")
+                ax.plot(
+                    x_vals,
+                    y_vals,
+                    marker='o',
+                    linestyle='-',
+                    color=color,
+                    label=f"{model}"
+                )
         
-        plt.xlabel("Load (req/s)")
-        plt.ylabel(y_label)
-        plt.title(title)
-        plt.grid(True, alpha=0.3)
-        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=10)
-        plt.tight_layout(rect=[0, 0, 0.85, 1])
+        ax.set_xlabel("Load (req/s)", fontsize=12)
+        ax.set_ylabel(y_label, fontsize=12)
+        ax.grid(True, linestyle="--", alpha=0.4)
+
+        # ---- LEGENDA NO EIXO SUPERIOR ----
+        handles, labels = ax.get_legend_handles_labels()
+        by_label = dict(sorted(zip(labels, handles), key=lambda x: x[0].lower()))
+        ax_top.legend(
+            by_label.values(),
+            by_label.keys(),
+            loc="upper center",       # posicione no topo e centralize horizontalmente
+            bbox_to_anchor=(0.5, 1.0), # x=0.5 centraliza horizontalmente, y=1.0 posiciona acima do eixo
+            ncol=3,
+            fontsize=12,
+            title="",
+            frameon=False,
+        )
+
+        # ---- SALVAR ----
         filename = os.path.join(output_dir, image_name)
-        plt.savefig(filename, bbox_inches='tight')
-        plt.close()
+        fig.savefig(filename, dpi=300, bbox_inches="tight")
+        plt.close(fig)
         plots.append(filename)
     
     return plots
+
 
 def generate_table_markdown(df, experiments):
     rows = []
@@ -501,22 +631,59 @@ def plot_throughputs(df, args):
         all_data["Prefill"][exp] = (x_prefill, y_prefill)
         all_data["Decode"][exp] = (x_decode, y_decode)
     
-    # Função genérica de plot
     def plot_metric(metric_name, data_dict):
-        plt.figure(figsize=(12,5))
+        fig = plt.figure(figsize=(10, 5))
+        gs = fig.add_gridspec(2, 1, height_ratios=[1.2, 4.0], hspace=0.05)
+
+        ax_top = fig.add_subplot(gs[0])
+        ax = fig.add_subplot(gs[1])
+
+        ax_top.axis("off")
+
+        ax_top.set_title(
+            f"{metric_name} vs Load (req/s)",
+            fontsize=14,
+            fontweight="bold",
+            pad=5,
+        )
+
         for exp, (x, y) in data_dict.items():
             if x:
                 color = exp_to_color[exp]
-                plt.plot(x, y, marker='o', linestyle='-', color=color, label=exp)
-        plt.xlabel("Load (req/s)")
-        plt.ylabel(f"{metric_name} (tokens/s)")
-        plt.title(f"{metric_name} vs Load (req/s)")
-        plt.grid(True, alpha=0.3)
-        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=10)
-        plt.tight_layout(rect=[0, 0, 0.85, 1])
-        filename = os.path.join(args.output_path, f"{metric_name.lower().replace(' ','_')}.png")
-        plt.savefig(filename, bbox_inches='tight')
-        plt.close()
+                ax.plot(
+                    x,
+                    y,
+                    marker="o",
+                    linestyle="-",
+                    color=color,
+                    label=exp,
+                )
+
+        ax.set_xlabel("Load (req/s)")
+        ax.set_ylabel(f"{metric_name} (tokens/s)")
+        ax.grid(True, alpha=0.3)
+
+        handles, labels = ax.get_legend_handles_labels()
+        by_label = dict(sorted(zip(labels, handles), key=lambda x: x[0].lower()))
+
+        ax_top.legend(
+            by_label.values(),
+            by_label.keys(),
+            loc="upper center",       # posicione no topo e centralize horizontalmente
+            bbox_to_anchor=(0.5, 1.0), # x=0.5 centraliza horizontalmente, y=1.0 posiciona acima do eixo
+            ncol=3,
+            fontsize=12,
+            title="",
+            frameon=False,
+        )
+
+        filename = os.path.join(
+            args.output_path,
+            f"{metric_name.lower().replace(' ', '_')}.png"
+        )
+        fig.savefig(filename, dpi=300, bbox_inches="tight")
+        plt.close(fig)
+
         return filename
 
     plots.append(plot_metric("Total Throughput", all_data["Total"]))
