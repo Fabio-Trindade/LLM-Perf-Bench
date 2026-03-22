@@ -44,12 +44,12 @@ class PromptPerformanceMetrics:
         return self._initial_req_time
     
     def get_final_time(self):
-        if not self._out_token_times:
-            raise RuntimeError("No output token times recorded.")
+        # if not self._out_token_times:
+            # raise RuntimeError("No output token times recorded.")
         return self._out_token_times[-1]
 
     def get_total_processed_tokens(self):
-        return self.prompt.prompt_len + len(self._out_token_times)
+        return 0 if self._out_token_times == 0 else self.prompt.prompt_len + len(self._out_token_times)
 
     def start_req_time(self):
         if self._initial_req_time is not None:
@@ -66,34 +66,27 @@ class PromptPerformanceMetrics:
         self.prompt.decoded_tokens.append(token)
         
     def calc_results(self):
-        if self.prompt.max_out_tokens < 2:
+        if self.prompt.max_out_tokens < 1:
             # logging.warning("Remove condition after test. [file=data_structures/prompt_performance_metrics.py, line=64]")
             raise RuntimeError("Not enough output token times to calculate performance metrics.")
-        self.e2e_time = self._out_token_times[-1] - self._initial_req_time
+ 
 
         self.decode_len =  len(self._out_token_times)
-
         self.prompt_len = self.prompt.prompt_len
+        if self.decode_len != 0:
+            self.e2e_time = self._out_token_times[-1] - self._initial_req_time
+            self.decode_time = self._out_token_times[-1] - self._out_token_times[0]
+            self.throughput = (self.prompt.prompt_len + self.decode_len)/self.e2e_time
 
-        self.throughput = (self.prompt.prompt_len + self.decode_len)/self.e2e_time
-
-        self.TTFT_time = self._out_token_times[0] - self._initial_req_time
-        
-        self.prefill_throughput = (self.prompt.prompt_len)/self.TTFT_time
-        self.decode_time = self._out_token_times[-1] - self._out_token_times[0]
-        self.decode_throughput = self.decode_len/self.decode_time
-
-        logging.warning("Remove after testing. file=data_structures/prompt_performance_metrics.py, line=83")
-        assert(self.decode_time + self.TTFT_time == self.e2e_time), \
-            "The sum of decode time and TTFT time should equal the e2e time."
-
-        self._success = self.prompt.max_out_tokens == len(self._out_token_times)
-
-        for idx in range(len(self._out_token_times) - 1):
-            self.tbt_times.append(
-                self._out_token_times[idx + 1] - self._out_token_times[idx]
-                )
+            self.TTFT_time = self._out_token_times[0] - self._initial_req_time
             
+            self.prefill_throughput = (self.prompt.prompt_len)/self.TTFT_time
+            self.decode_throughput = self.decode_len/self.decode_time
+            for idx in range(len(self._out_token_times) - 1):
+                self.tbt_times.append(
+                    self._out_token_times[idx + 1] - self._out_token_times[idx]
+                    )
+                
     def get_metrics(self, var_name: str) -> list:
         attr = getattr(self, var_name)
         data_list = attr if isinstance(attr, list) else [attr]

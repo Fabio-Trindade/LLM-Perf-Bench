@@ -1,4 +1,5 @@
 import logging
+import math
 from src.data_structures.prompt import Prompt
 from src.prompt_generator.prompt_generator import PromptGeneratorBase
 from abc import ABC, abstractmethod
@@ -6,7 +7,7 @@ import tqdm
 
 class DatasetGenI(ABC):
     def __init__(self, config ):
-        self.num_prompts = config.num_prompts
+        self.num_prompts = math.ceil(config.concurrent_requesters   *config.request_rate_per_requester*config.load_time)
     
     def gen_dataset(self, tokenizer, prompt_generator: PromptGeneratorBase) -> list[Prompt]:  
         prompts :list[Prompt] = []

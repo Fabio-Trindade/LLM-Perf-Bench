@@ -10,3 +10,4 @@ pynvml
 openai
 tiktoken
 tabulate
+flashinfer‑python

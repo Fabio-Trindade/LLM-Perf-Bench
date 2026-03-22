@@ -11,11 +11,23 @@ class WorkloadComponentFactory:
         comp_names = ComponentCatalog.get_comp_names()
         kwargs = {}
         for comp_name in comp_names:
-            comp_cls_name = getattr(config,comp_name)
+            component_cls_name = getattr(config,comp_name)
             comp_cls = ComponentClassRegistry.get_instance(component_typename,
                                                  comp_name,
-                                                 comp_cls_name)
+                                                 component_cls_name)
             component_inst = comp_cls(config)
             kwargs [comp_name] = component_inst
         return SimpleNamespace(**kwargs)
+    
+    @staticmethod
+    def build_single_component_from_config(config,
+                                           component_typename,
+                                           component_name,
+                                           component_cls_name):
+        comp_cls = ComponentClassRegistry.get_instance(component_typename,
+                                                component_name,
+                                                component_cls_name)
+        component_inst = comp_cls(config)
+        return component_inst
+        
 

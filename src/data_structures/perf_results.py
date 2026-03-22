@@ -8,17 +8,15 @@ class PerfResults():
         self.total_throughput = None
         self.cache = {}
     
-    # def calc_throughputs(self):
-    #     if self.throughput:
-    #         return
+    def calc_total_throughput(self):
+        if self.total_throughput:
+            return self.total_throughput
         
-    #     if self.throughput:
-    #         return self.throughput
-    #     processed_tokens = 0
-    #     for req in self.requests_metrics:
-    #         processed_tokens += req.get_total_processed_tokens()
-    #     self.throughput = processed_tokens/self.total_time
-    #     return self.throughput
+        processed_tokens = 0
+        for req in self.requests_metrics:
+            processed_tokens += req.get_total_processed_tokens()
+        self.total_throughput = processed_tokens/self.total_time
+        return self.total_throughput
     
     def get_metrics(self, var_name: str):
         if var_name in self.cache:

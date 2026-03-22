@@ -1,5 +1,3 @@
-import argparse
-
 from src.binders.binder import Binder
 from src.catalogs.config_catalog import ConfigCatalog
 from src.registries.component_class_registry import ComponentClassRegistry

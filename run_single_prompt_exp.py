@@ -12,39 +12,35 @@ initialize_modules()
                                   ConfigCatalog._prompt_variation_config])
 def add_single_prompt_args(): pass
 
-def run_prompt_variation_exp_by_config(title, config):
-    config_logging(config.logging)
+def run_prompt_variation_exp_by_config(config,tokenizer, prompt_generator, server, requester, dataset_gen, prompt_sizes):
+    results = run_workload_loop(config, tokenizer, prompt_generator, server, requester, dataset_gen, prompt_sizes, "prompt_size_range")
+    return results
 
-    logging.info(f"----------- {title} -----------")
+def run(args):
+    config = args
+    config_logging(config.logging)
+    repeat_times = config.repeat_times
+
+    logging.info(f"----------- Running Single Prompt Experiment -----------")
     
-    config.max_out_tokens_range = (config.max_out_tokens, config.max_out_tokens)
 
     prompt_sizes = config.prompt_sizes
     prompt_generator = PromptGeneratorBase()
     tokenizer, dataset_gen, server, requester = get_components_from_config(config)
-    results = LoadResults()
-
-    for i,prompt_size in enumerate(prompt_sizes):
-        config.prompt_size_range = (prompt_size,prompt_size)
-        all_results = run_workload(config, tokenizer, prompt_generator, server, requester, dataset_gen, i == 0, i == len(prompt_sizes) - 1)
-        results.add_data(*all_results)
-
-    return  results.get_all()
-
-def run(args):
-    config = args
-    config.max_out_tokens_range = (config.max_out_tokens, config.max_out_tokens)
-    repeat_times = config.repeat_times
+    server.init()
     initialize_writer(config)
     for i in range(repeat_times + 1):
         logging.info(f"Running repetition {i}")
-        all_results, all_host_data, all_accelerator_data = run_prompt_variation_exp_by_config("Running Single Prompt Experiment", config)
+        all_results, all_host_data, all_accelerator_data = run_prompt_variation_exp_by_config(config,
+                                                                                              tokenizer, prompt_generator, server, 
+                                                                                              requester, dataset_gen, prompt_sizes).get_all()
     
         for result in all_results:
             all_prompts = result.get_all_prompts()
             assert_all_decode_size_equal(all_prompts, config.max_out_tokens)
         write_results(config, all_results)
     save_results(config)
+    server.shutdown()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

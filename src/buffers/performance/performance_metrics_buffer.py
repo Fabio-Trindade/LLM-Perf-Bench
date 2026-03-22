@@ -6,17 +6,18 @@ import threading
 class PerformanceMetricsBuffer():
     def __init__(self):
         self.metrics: dict[Any, PromptPerformanceMetrics] = {}
-        # self._lock = threading.Lock()
 
     def empty(self) -> bool:
         return len(self.metrics) == 0
-        
-    def initialize_metrics(self, prompt, key: Any, req_id:int , start_request_time: bool) -> None:
+    
+    def set_as_completed(self,key):
+        self.metrics[key].set_success(True)
+
+    def  initialize_metrics(self, prompt, key: Any, req_id:int , start_request_time: bool) -> None:
         assert key not in self.metrics, f"Metrics for key {key} already exists."
         prompt_metrics = PromptPerformanceMetrics(deepcopy(prompt), req_id)
         if start_request_time:
             prompt_metrics.start_req_time()
-        # with self._lock:
         self.metrics[key] = prompt_metrics
         
     def add_decode_data(self, key, time, token):

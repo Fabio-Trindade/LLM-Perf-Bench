@@ -64,7 +64,7 @@ class AcceleratorMonitor(DeviceMonitorI):
         nvmlShutdown()
 
     def get_data(self) -> AcceleratorData:
-        logging.warning("Accelerator monitor doesn't collect data for more than one node")
+        # logging.warning("Accelerator monitor doesn't collect data for more than one node")
         return AcceleratorData(
             name=", ".join(set(self.gpu_names)),
             num_devices=self.gpu_count,

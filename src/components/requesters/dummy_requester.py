@@ -17,7 +17,7 @@ class DummyRequester(RequesterI):
         self.infer_sleep_time = config.infer_sleep_time
         self.max_out_tokens = config.max_out_tokens
         
-    async def async_request(self,  req_id, prompts, buffer, server):
+    async def async_request(self,  req_id, prompts, buffer, timeout):
         
         async def infer():
             await asyncio.sleep(self.infer_sleep_time)

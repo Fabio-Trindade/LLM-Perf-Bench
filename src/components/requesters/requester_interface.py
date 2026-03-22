@@ -11,7 +11,7 @@ class RequesterI(ABC):
         self.config = config
     
     @abstractmethod
-    async def async_request(self, req_id: int, prompts: list[str] | str, buffer: PerformanceMetricsBuffer ,server: ServerI):
+    async def async_request(self, req_id: int, prompts: list[str] | str, buffer: PerformanceMetricsBuffer, timeout = None):
         raise RuntimeError("Must be implemented")
     
     def get_str_prompts(self, prompts: list[Prompt] | str) -> list[str]:
