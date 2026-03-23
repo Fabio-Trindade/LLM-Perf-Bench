@@ -12,7 +12,7 @@ def config_logging(logging_str: str):
     elif logging_str == EnumLogging.ERROR.value:
         log = logging.ERROR
     else:
-        raise ValueError(f"Invalid logging value {log}")
+        raise ValueError(f"Invalid logging value {logging_str}")
 
     logging.basicConfig(
         level=log,
