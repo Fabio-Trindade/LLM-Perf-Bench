@@ -11,3 +11,4 @@ openai
 tiktoken
 tabulate
 flashinfer-python
+requests

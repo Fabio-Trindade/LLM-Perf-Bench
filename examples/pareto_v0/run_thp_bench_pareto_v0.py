@@ -1,16 +1,34 @@
 import os
 import sys
-
+from types import SimpleNamespace
 PROMPT_SIZE = 4096
 DECODE_SIZE = 8192
 MAX_MODEL_LEN = PROMPT_SIZE + DECODE_SIZE
 
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../"))
+sys.path.insert(0, project_root)
+
 from experiments.pareto_v0.compression.quantization.sym_asym.quantize_weight_sym_asym_llama_3_1 import register_all
 register_all()
+
 from src.utils.hf import HFModelRegistry
-from ...run_vllm_perf_exp import run_vllm_experiment
+sys.path.pop(0)
 
 MODELS = [model.get_hf_path() for model in HFModelRegistry.get_models()]
+
+
+bench_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
+sys.path.insert(0, bench_root)
+
+keys_to_remove = [key for key in sys.modules if key == 'src' or key.startswith('src.')]
+for key in keys_to_remove:
+    del sys.modules[key]
+
+from run_vllm_perf_exp import run_vllm_experiment
+import importlib.util
+spec = importlib.util.find_spec("src")
+# print("src found at:", spec.submodule_search_locations if spec else "NOT FOUND")
+from run_vllm_perf_exp import run_vllm_experiment
 
 task_id = os.environ.get("SLURM_ARRAY_TASK_ID")
 if task_id is None:
@@ -31,14 +49,12 @@ if task_index >= len(MODELS):
     print(f"[ERROR] SLURM_ARRAY_TASK_ID ({task_index}) is larger than the model list ({len(MODELS)})")
     sys.exit(1)
 
-MODEL = MODELS[task_index]
-MODEL_ALIAS = MODEL.split("/")[-1]
 
 args = {
     "model": MODEL,
     "model_name_alias": MODEL_ALIAS,
     "experiment_key": MODEL_ALIAS,
-    "experiment_group": "paretov0",
+    "experiment_group": "pareto_v0",
     "path_to_save_results": f"results/Thp/{MODEL_ALIAS}/",
     "path_to_csv_filename": f"results/Thp/{MODEL_ALIAS}/perf_data.csv",
     "concurrent_requesters": 16,
@@ -58,10 +74,22 @@ args = {
     "endpoint": ENDPOINT,
     "host": "localhost",
     "port": 7000 + task_index,
-    "ignore_eos": True,
+    "ignore_eos": "True",
     "vllm_serve_args": f"--max-num-seqs 512 --max-model-len {MAX_MODEL_LEN} --dtype auto "
-                       "--gpu_memory_utilization 0.95"
+                       "--gpu_memory_utilization 0.95 "
                        "--max-num-batched-tokens 8192 --stream-interval 1"
 }
 
-run_vllm_experiment(args)
+sys.argv = ["run_vllm_experiment.py"] 
+
+for k, v in args.items():
+    flag = f"--{k}"
+    if isinstance(v, (tuple, list)):
+        sys.argv.append(flag)
+        sys.argv.extend(map(str, v)) 
+    else:
+        sys.argv.append(flag)
+        sys.argv.append(str(v))
+
+print(sys.argv) 
+run_vllm_experiment()
