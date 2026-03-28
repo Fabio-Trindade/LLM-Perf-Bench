@@ -2,30 +2,36 @@ import os
 import sys
 import argparse
 
-def register_models():
-    from experiments.pareto_v0.compression.quantization.sym_asym.quantize_weight_sym_asym_llama_3_1 import register_all
-    register_all()
-
-def get_models():
-    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../"))
+def resolve_root(levels):
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../"*levels))
     sys.path.insert(0, project_root)
-    # don't change the order
-    register_models()
-    from src.utils.hf import HFModelRegistry
+
+def remove_root():
     sys.path.pop(0)
 
-    MODELS = [model.get_hf_path() for model in HFModelRegistry.get_models()]
-
-    bench_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
-    sys.path.insert(0, bench_root)
-
+def get_models():
+    original_root = sys.path.pop(0)
     keys_to_remove = [key for key in sys.modules if key == 'src' or key.startswith('src.')]
     for key in keys_to_remove:
         del sys.modules[key]
+        
+    resolve_root(7)
+    from experiments.pareto_v0.compression.quantization.sym_asym.quantize_weight_sym_asym_llama_3_1 import register_all
+    register_all()
+    from src.utils.hf import HFModelRegistry
+    remove_root()
+    keys_to_remove = [key for key in sys.modules if key == 'src' or key.startswith('src.')]
+    for key in keys_to_remove:
+        del sys.modules[key]
+    
+    sys.path.append(original_root)
+    MODELS = [model.get_hf_path() for model in HFModelRegistry.get_models()]
 
     return MODELS
 
-def get_args(task_id, prompt_size, decode_size):
+    
+
+def create_argvs(task_id, prompt_size, decode_size):
     MODELS = get_models()
     if task_id is None:
         print("[WARN] SLURM_ARRAY_TASK_ID not found, using index 0")
@@ -90,10 +96,10 @@ def get_task_id():
     parser = argparse.ArgumentParser()
     parser.add_argument("--task-id", default= -1, type = int)
     args = parser.parse_args()
-    return args
+    return args.task_id
 
 def run_experiment(prompt_size, decode_size):
     from run_vllm_perf_exp import run_vllm_experiment
     task_id = get_task_id()
-    args = get_args(task_id, prompt_size, decode_size)
-    run_vllm_experiment(args)
+    create_argvs(task_id, prompt_size, decode_size)
+    run_vllm_experiment()
