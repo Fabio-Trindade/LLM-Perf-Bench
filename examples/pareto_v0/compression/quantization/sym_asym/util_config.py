@@ -44,8 +44,8 @@ def create_argvs(args, prompt_size, decode_size):
               ["FabioTrindade/Llama-3.1-8B-Instruct-W4A16KV16-sym-GS-128",1],
               ["FabioTrindade/Llama-3.1-8B-Instruct-W4A16KV16-asym-GS-128",1],
               
-              ["FabioTrindade/Llama-3.1-70B-Instruct-W4A16KV16-sym-GS-32",1],
-              ["FabioTrindade/Llama-3.1-70B-Instruct-W4A16KV16-asym-GS-32",1]]
+              ["FabioTrindade/Llama-3.1-70B-Instruct-W4A16KV16-sym-GS-32",2],
+              ["FabioTrindade/Llama-3.1-70B-Instruct-W4A16KV16-asym-GS-32",2]]
     
     if args.print_models_only:
         for i,model in (enumerate(MODELS)):
