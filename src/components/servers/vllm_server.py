@@ -46,7 +46,7 @@ class vLLMServer(ServerI):
         
         return process
     
-    def wait_vllm_server_ready(self,port, process, timeout=360):
+    def wait_vllm_server_ready(self,port, process, timeout=1800):
         symbols = itertools.cycle("|/-\\")
         start = time.time()
         while True:
@@ -70,7 +70,7 @@ class vLLMServer(ServerI):
     def kill_vllm_server_process(self,process: subprocess.Popen):
         try:
             os.kill(process.pid, signal.SIGINT)
-            process.wait(timeout=360)
+            process.wait(timeout=1800)
         except Exception:
             process.kill()
             process.wait()
