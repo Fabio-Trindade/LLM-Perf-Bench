@@ -84,7 +84,7 @@ def create_argvs(args, prompt_size, decode_size):
         "port": 7000 + task_index,
         "ignore_eos": "True",
         "vllm_serve_args": f"--max-num-seqs 64 --max-model-len {MAX_MODEL_LEN} --dtype auto "
-                        "--gpu_memory_utilization 0.95 "
+                        "--gpu_memory_utilization 0.95  --no-enable-prefix-caching"
                         "--max-num-batched-tokens 8192 --stream-interval 1"
     }
 
