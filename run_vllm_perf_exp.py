@@ -52,6 +52,7 @@ def run_vllm_experiment():
     parser_verification = argparse.ArgumentParser()
     parser_verification.add_argument('--experiment_key', type=str, required=True)
     parser_verification.add_argument('--path_to_save_results', type=str, required=True)
+    parser_verification.add_argument('--auto-load', action = "store_true")
     verification_args, _ = parser_verification.parse_known_args()
 
     state_filepath = os.path.join(os.path.dirname(verification_args.path_to_save_results), "state.json")
@@ -116,9 +117,10 @@ def run_vllm_experiment():
             print(f"[RESULT] Max request rate: {best_request_rate}, throughput: {max_thp_req:.2f} tokens/s\n", flush=True)
             return best_request_rate
         
-        args.request_rate_per_requester = run_step(exp_state, "best_request_rate", state_filepath, find_best_num_request_rate_func)
-
-        print(f"\n=========== Running intervaled load experiment using max request rate {args.request_rate_per_requester} tok/s ===========\n", flush=True)
+        if verification_args.auto_load:
+            args.request_rate_per_requester = run_step(exp_state, "best_request_rate", state_filepath, find_best_num_request_rate_func)
+    
+        print(f"\n=========== Running intervaled load experiment using max request rate {args.request_rate_per_requester} (req/s) ===========\n", flush=True)
         tokenizer, dataset_gen, _, requester = get_components_from_config(args)
         prompt_generator = PromptGeneratorBase()
         prompts = dataset_gen.gen_dataset(tokenizer, prompt_generator)

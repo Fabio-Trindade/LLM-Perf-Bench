@@ -102,7 +102,7 @@ class ConfigCatalog:
             "Wait until all requests finish (true/false)",
             action="store_true"
         ),
-        config_field("request_rate_per_requester", True, int, 1, "request/sec"),
+        config_field("request_rate_per_requester", True, float, 1, "request/sec"),
         config_field("prompt_size_range", True, int, (10, 100), "Range of prompt sizes (min, max)", nargs=2),
         config_field("decode_size_range", True, int, (10, 100), "Maximum output tokens per response", nargs=2),
         config_field("prompts_per_request", True, int, 1, "Number of prompts per request"),
@@ -129,7 +129,7 @@ class ConfigCatalog:
     ])
 
     _load_exp_config = create_namespace_from_fields(FIELDS, [
-        config_field("request_rates_per_requester", True, int, [10, 20], desc="Request rates per requester", nargs="+"),
+        config_field("request_rates_per_requester", True, float, [10, 20], desc="Request rates per requester", nargs="+"),
     ])
 
     _intervaled_load_config = create_namespace_from_fields(FIELDS, [

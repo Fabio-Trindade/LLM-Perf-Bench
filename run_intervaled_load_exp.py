@@ -21,19 +21,18 @@ def run_intervaled_load_exp(config, requester, server, prompts):
 
     req_rate_per_interval = config.request_rate_per_requester/total_intervals
     request_rate_per_requester_list = [req_rate_per_interval*i for i in range(1, total_intervals + 1)] 
-    workload_executor = DistributedWorkload(config, requester, prompts)
+    workload_executor = DistributedWorkload(config, requester, prompts) 
     setattr(config, "request_rate_per_requester_list", request_rate_per_requester_list)
     results = workload_executor.run_param_loop(config, requester, prompts, request_rate_per_requester_list, "request_rate_per_requester")
     return results
 
-if __name__ == "__main__":
+def run():
     parser = argparse.ArgumentParser()
     
     fixed_args = {
         "prompts_per_request": 1,
-        "num_prompts": 1,
-        "prompt_sizes": None
-    }
+        "num_prompts": 1
+        }
 
     config = get_args_from_parser(parser, fixed_args, add_intervaled_load_exp_args)
     config_logging(config.logging)
@@ -46,4 +45,6 @@ if __name__ == "__main__":
     server.shutdown()
 
     finish_experiment(all_results, config)
+if __name__ == "__main__":
+   run()
 
