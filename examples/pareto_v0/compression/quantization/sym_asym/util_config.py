@@ -35,10 +35,17 @@ import argparse
 def create_argvs(args, prompt_size, decode_size):
     # MODELS = sorted(get_models())
     # MODELS = sorted(get_models())
-    MODELS = ["FabioTrindade/Llama-3.1-8B-Instruct-W4A16KV16-sym-GS-32",
-              "FabioTrindade/Llama-3.1-8B-Instruct-W4A16KV16-asym-GS-32",
-              "FabioTrindade/Llama-3.1-70B-Instruct-W4A16KV16-sym-GS-32",
-              "FabioTrindade/Llama-3.1-70B-Instruct-W4A16KV16-asym-GS-32"]
+    MODELS = [["FabioTrindade/Llama-3.1-8B-Instruct-W4A16KV16-sym-GS-32",1],
+              ["FabioTrindade/Llama-3.1-8B-Instruct-W4A16KV16-asym-GS-32",1],
+              
+              ["FabioTrindade/Llama-3.1-8B-Instruct-W4A16KV16-sym-GS-64",1],
+              ["FabioTrindade/Llama-3.1-8B-Instruct-W4A16KV16-asym-GS-64",1],
+              
+              ["FabioTrindade/Llama-3.1-8B-Instruct-W4A16KV16-sym-GS-128",1],
+              ["FabioTrindade/Llama-3.1-8B-Instruct-W4A16KV16-asym-GS-128",1],
+              
+              ["FabioTrindade/Llama-3.1-70B-Instruct-W4A16KV16-sym-GS-32",2],
+              ["FabioTrindade/Llama-3.1-70B-Instruct-W4A16KV16-asym-GS-32",2]]
     
     if args.print_models_only:
         for i,model in (enumerate(MODELS)):
@@ -50,7 +57,7 @@ def create_argvs(args, prompt_size, decode_size):
         print(f"[ERROR] Task ID ({task_index}) is larger than the model list ({len(MODELS)})")
         sys.exit(1)
 
-    MODEL = MODELS[task_index]
+    MODEL,GPUs = MODELS[task_index]
     MODEL_ALIAS = MODEL.split("/")[-1]
     MAX_MODEL_LEN = prompt_size + decode_size
     if task_index >= len(MODELS):
@@ -85,7 +92,8 @@ def create_argvs(args, prompt_size, decode_size):
         "ignore_eos": "True",
         "vllm_serve_args": f"--max-num-seqs 64 --max-model-len {MAX_MODEL_LEN} --dtype auto "
                         "--gpu_memory_utilization 0.95  --no-enable-prefix-caching "
-                        "--max-num-batched-tokens 8192 --stream-interval 1"
+                        "--max-num-batched-tokens 8192 --stream-interval 1 "
+                        f"--pipeline-parallel-size {GPUs}"
     }
 
     sys.argv = ["run_vllm_experiment.py"] 
