@@ -71,6 +71,7 @@ def create_argvs(args, prompt_size, decode_size):
         print(f"[ERROR] SLURM_ARRAY_TASK_ID ({task_index}) is larger than the model list ({len(MODELS)})")
         sys.exit(1)
     ENDPOINT = "completions"
+    is_big_model = "70" in MODEL or "405" in MODEL
     args = {
         "model": MODEL,
         "model_name_alias": MODEL_ALIAS,
@@ -85,7 +86,7 @@ def create_argvs(args, prompt_size, decode_size):
         # "increment_request_rate_factor": 1.5,
         # "epsilon_request_rate": 0.03,
         "load_time": 30,
-        "request_rate_per_requester": 4,
+        "request_rate_per_requester": 4 if not is_big_model else 1.5,
         "interval_percentage": 5,
         "seed": 1234,
         "logging": "info",
@@ -98,7 +99,7 @@ def create_argvs(args, prompt_size, decode_size):
         "port": 7000 + task_index,
         "ignore_eos": "True",
         "vllm_serve_args": f"--max-num-seqs 64 --max-model-len {MAX_MODEL_LEN} --dtype auto "
-                        "--gpu_memory_utilization 0.95  --no-enable-prefix-caching "
+                        "--gpu_memory_utilization 0.95 --no-enable-prefix-caching "
                         "--max-num-batched-tokens 8192 --stream-interval 1 "
                         f"--pipeline-parallel-size {GPUs}"
     }
