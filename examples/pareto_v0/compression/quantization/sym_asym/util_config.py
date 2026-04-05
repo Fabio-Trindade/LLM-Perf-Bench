@@ -35,23 +35,28 @@ import argparse
 def create_argvs(args, prompt_size, decode_size):
     # MODELS = sorted(get_models())
     # MODELS = sorted(get_models())
-    MODELS = [["FabioTrindade/Llama-3.1-8B-Instruct-W4A16KV16-sym-GS-32",1],
-              ["FabioTrindade/Llama-3.1-8B-Instruct-W4A16KV16-asym-GS-32",1],
-              
+    MODELS = [
+        
+            ["meta-llama/Llama-3.1-8B-Instruct",1]
+            #group-size exp
+            ["FabioTrindade/Llama-3.1-8B-Instruct-W4A16KV16-sym-GS-32",1],
               ["FabioTrindade/Llama-3.1-8B-Instruct-W4A16KV16-sym-GS-64",1],
-              ["FabioTrindade/Llama-3.1-8B-Instruct-W4A16KV16-asym-GS-64",1],
-              
               ["FabioTrindade/Llama-3.1-8B-Instruct-W4A16KV16-sym-GS-128",1],
-              ["FabioTrindade/Llama-3.1-8B-Instruct-W4A16KV16-asym-GS-128",1],
               
-              ["FabioTrindade/Llama-3.1-70B-Instruct-W4A16KV16-sym-GS-32",2],
-              ["FabioTrindade/Llama-3.1-70B-Instruct-W4A16KV16-asym-GS-32",2],
+            #   ["FabioTrindade/Llama-3.1-8B-Instruct-W4A16KV16-asym-GS-32",1],
               
-              ["FabioTrindade/Llama-3.1-70B-Instruct-W4A16KV16-sym-GS-64",2],
-              ["FabioTrindade/Llama-3.1-70B-Instruct-W4A16KV16-asym-GS-64",2],
+            #   ["FabioTrindade/Llama-3.1-8B-Instruct-W4A16KV16-asym-GS-64",1],
               
-              ["FabioTrindade/Llama-3.1-70B-Instruct-W4A16KV16-sym-GS-128",2],
-              ["FabioTrindade/Llama-3.1-70B-Instruct-W4A16KV16-asym-GS-128",2],
+            #   ["FabioTrindade/Llama-3.1-8B-Instruct-W4A16KV16-asym-GS-128",1],
+              
+            #   ["FabioTrindade/Llama-3.1-70B-Instruct-W4A16KV16-sym-GS-32",2],
+            #   ["FabioTrindade/Llama-3.1-70B-Instruct-W4A16KV16-asym-GS-32",2],
+              
+            #   ["FabioTrindade/Llama-3.1-70B-Instruct-W4A16KV16-sym-GS-64",2],
+            #   ["FabioTrindade/Llama-3.1-70B-Instruct-W4A16KV16-asym-GS-64",2],
+              
+            #   ["FabioTrindade/Llama-3.1-70B-Instruct-W4A16KV16-sym-GS-128",2],
+            #   ["FabioTrindade/Llama-3.1-70B-Instruct-W4A16KV16-asym-GS-128",2],
               ]
     
     if args.print_models_only:
@@ -98,7 +103,7 @@ def create_argvs(args, prompt_size, decode_size):
         "host": "localhost",
         "port": 7000 + task_index,
         "ignore_eos": "True",
-        "vllm_serve_args": f"--max-num-seqs 64 --max-model-len {MAX_MODEL_LEN} --dtype auto "
+        "vllm_serve_args": f"--max-num-seqs 32 --max-model-len {MAX_MODEL_LEN} --dtype auto "
                         "--gpu_memory_utilization 0.95 --no-enable-prefix-caching "
                         "--max-num-batched-tokens 8192 --stream-interval 1 "
                         f"--pipeline-parallel-size {GPUs}"
@@ -124,7 +129,6 @@ def get_args():
     return args
 
 def run_experiment(prompt_size, decode_size):
-    from run_intervaled_load_exp import run
     from run_vllm_perf_exp import run_vllm_experiment
 
     args = get_args()
